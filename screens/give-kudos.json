@@ -1,0 +1,91 @@
+{
+	"trigger_id": "%s",
+	"view": {
+		"type": "modal",
+		"submit": {
+			"type": "plain_text",
+			"text": "Elogiar!",
+			"emoji": true
+		},
+		"close": {
+			"type": "plain_text",
+			"text": "Cancelar",
+			"emoji": true
+		},
+		"title": {
+			"type": "plain_text",
+			"text": "Dê elogio",
+			"emoji": true
+		},
+		"blocks": [
+			{
+				"type": "input",
+				"label": {
+					"type": "plain_text",
+					"text": "Para",
+					"emoji": true
+				},
+				"element": {
+					"type": "multi_users_select",
+					"placeholder": {
+						"type": "plain_text",
+						"text": "Selecione os elogiados",
+						"emoji": true
+					}
+				}
+			},
+			{
+				"type": "input",
+				"label": {
+					"type": "plain_text",
+					"text": "Tipo",
+					"emoji": true
+				},
+				"element": {
+					"type": "static_select",
+					"placeholder": {
+						"type": "plain_text",
+						"text": "Selecione o tipo de elogio",
+						"emoji": true
+					},
+					"options": [
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":tada: Trabalho incrível",
+								"emoji": true
+							},
+							"value": "value-0"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": "🤖 Uma máquina",
+								"emoji": true
+							},
+							"value": "value-1"
+						}
+					]
+				}
+			},
+			{
+				"type": "input",
+				"label": {
+					"type": "plain_text",
+					"text": "Mensagem",
+					"emoji": true
+				},
+				"element": {
+					"type": "plain_text_input",
+					"multiline": true,
+					"placeholder": {
+						"type": "plain_text",
+						"text": "Deixe uma mensagem junto",
+						"emoji": true
+					}
+				},
+				"optional": true
+			}
+		]
+	}
+}

@@ -1,0 +1,22 @@
+# Slash command triggered.
+#
+POST http://localhost:8080/
+Accept: application/json,*/*
+Content-Type: application/x-www-form-urlencoded
+x-slack-request-timestamp: 1756759357
+x-slack-signature: v0=3e657f2c92c840284cec9e029314cc17c8d8ecf9168c548d6d94afa21d7898fc
+user-agent: Slackbot 1.0 (+https://api.slack.com/robots)
+
+token=JdBZFq5n9sKFEdFzmoJUwDsr
+&team_id=T027EHYC7
+&team_domain=parafuzo
+&channel_id=D5544NCKY
+&channel_name=directmessage
+&user_id=U549VCZGS
+&user_name=vyper
+&command=%2Felogie
+&text=
+&api_app_id=A06A81GAJQL
+&is_enterprise_install=false
+&response_url=https%3A%2F%2Fhooks.slack.com%2Fcommands%2FT027EHYC7%2F9440435475221%2FmK0YyS55xIUOCUALWyDaYAv2
+&trigger_id=9440435490101.2252610415.badd37d2439f649e4c5de7f4c78070ef
