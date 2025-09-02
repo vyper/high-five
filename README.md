@@ -14,6 +14,7 @@ go mod tidy
 
 ```bash
 export SLACK_BOT_TOKEN=xoxb-your-slack-bot-token-here
+export SLACK_SIGNING_SECRET=your-slack-signing-secret-here
 ```
 
 3. **Deploy to Google Cloud Functions:**
@@ -30,7 +31,7 @@ gcloud beta functions deploy matter-give-kudos \
    --trigger-http \
    --allow-unauthenticated \
    --memory 128MiB \
-   --set-env-vars SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN
+   --set-env-vars "SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN,SLACK_SIGNING_SECRET=$SLACK_SIGNING_SECRET"
 ```
 
 ## Local Development

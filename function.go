@@ -11,9 +11,11 @@ import (
 	"io"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/slack-go/slack"
 )
 
 var slackBotToken string
+var signingSecret string
 
 func init() {
 	functions.HTTP("GiveKudos", giveKudos)
@@ -22,12 +24,24 @@ func init() {
 	if slackBotToken == "" {
 		log.Fatal("SLACK_BOT_TOKEN environment variable is required")
 	}
+
+	signingSecret = os.Getenv("SLACK_SIGNING_SECRET")
+	if signingSecret == "" {
+		log.Fatal("SLACK_SIGNING_SECRET environment variable is required")
+	}
 }
 
 // giveKudos is an HTTP Cloud Function.
 func giveKudos(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Method: %s\n", r.Method)
 	fmt.Printf("Content-Type: %s\n", r.Header.Get("Content-Type"))
+
+	_, err := slack.NewSecretsVerifier(r.Header, signingSecret)
+	if err != nil {
+		log.Printf("Invalid Slack Signin Secret: %v", err)
+		http.Error(w, "Invalid Slack Signin Secret", http.StatusUnauthorized)
+		return
+	}
 
 	if r.Method == http.MethodPost && r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
 		if err := r.ParseForm(); err != nil {
