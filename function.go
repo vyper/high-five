@@ -2,6 +2,7 @@ package function
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"github.com/slack-go/slack"
 )
 
+var slackApi *slack.Client
+var slackChannelID string
 var slackBotToken string
 var signingSecret string
 
@@ -25,10 +28,17 @@ func init() {
 		log.Fatal("SLACK_BOT_TOKEN environment variable is required")
 	}
 
+	slackChannelID = os.Getenv("SLACK_CHANNEL_ID")
+	if slackChannelID == "" {
+		log.Fatal("SLACK_CHANNEL_ID environment variable is required")
+	}
+
 	signingSecret = os.Getenv("SLACK_SIGNING_SECRET")
 	if signingSecret == "" {
 		log.Fatal("SLACK_SIGNING_SECRET environment variable is required")
 	}
+
+	slackApi = slack.New(slackBotToken, slack.OptionDebug(true))
 }
 
 // giveKudos is an HTTP Cloud Function.
@@ -48,7 +58,28 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 			log.Printf("error parsing application/x-www-form-urlencoded: %v", err)
 		} else {
 			if payloadStr := r.FormValue("payload"); payloadStr != "" {
-				fmt.Printf("Payload: %s\n", payloadStr)
+				var i slack.InteractionCallback
+				err = json.Unmarshal([]byte(r.FormValue("payload")), &i)
+				if err != nil {
+					log.Printf("Invalid Slack Interaction Callback: %v", err)
+					http.Error(w, "Invalid Slack Interaction Callback", http.StatusUnauthorized)
+					return
+				}
+
+				message := fmt.Sprintf(
+					"Olá <@%s>, obrigado por elogiar: %v!\n\nVocê selecionou: %v e deixou a mensagem: \n\n> %v",
+					i.User.ID,
+					i.View.State.Values["kudo_users"]["kudo_users"].SelectedUsers,
+					i.View.State.Values["kudo_type"]["kudo_type"].SelectedOption.Text.Text,
+					i.View.State.Values["kudo_message"]["kudo_message"].Value,
+				)
+
+				respChannelID, timestamp, err := slackApi.PostMessage(slackChannelID, slack.MsgOptionText(message, false))
+				if err != nil {
+					log.Printf("Error posting message: %v", err)
+				} else {
+					fmt.Printf("Message posted to channel %s at %s\n", respChannelID, timestamp)
+				}
 			} else {
 				client := &http.Client{
 					Timeout: time.Second * 10,
@@ -76,6 +107,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 		"blocks": [
 			{
 				"type": "input",
+				"block_id": "kudo_users",
 				"label": {
 					"type": "plain_text",
 					"text": "Para",
@@ -83,6 +115,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 				},
 				"element": {
 					"type": "multi_users_select",
+					"action_id": "kudo_users",
 					"placeholder": {
 						"type": "plain_text",
 						"text": "Selecione os elogiados",
@@ -92,6 +125,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 			},
 			{
 				"type": "input",
+				"block_id": "kudo_type",
 				"label": {
 					"type": "plain_text",
 					"text": "Tipo",
@@ -99,6 +133,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 				},
 				"element": {
 					"type": "static_select",
+					"action_id": "kudo_type",
 					"placeholder": {
 						"type": "plain_text",
 						"text": "Selecione o tipo de elogio",
@@ -126,6 +161,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 			},
 			{
 				"type": "input",
+				"block_id": "kudo_message",
 				"label": {
 					"type": "plain_text",
 					"text": "Mensagem",
@@ -133,6 +169,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 				},
 				"element": {
 					"type": "plain_text_input",
+					"action_id": "kudo_message",
 					"multiline": true,
 					"placeholder": {
 						"type": "plain_text",

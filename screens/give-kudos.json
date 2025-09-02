@@ -20,6 +20,7 @@
 		"blocks": [
 			{
 				"type": "input",
+				"block_id": "kudo_users",
 				"label": {
 					"type": "plain_text",
 					"text": "Para",
@@ -36,6 +37,7 @@
 			},
 			{
 				"type": "input",
+				"block_id": "kudo_type",
 				"label": {
 					"type": "plain_text",
 					"text": "Tipo",
@@ -70,6 +72,7 @@
 			},
 			{
 				"type": "input",
+				"block_id": "kudo_message",
 				"label": {
 					"type": "plain_text",
 					"text": "Mensagem",
