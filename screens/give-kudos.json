@@ -28,6 +28,7 @@
 				},
 				"element": {
 					"type": "multi_users_select",
+					"action_id": "kudo_users",
 					"placeholder": {
 						"type": "plain_text",
 						"text": "Selecione os elogiados",
@@ -45,6 +46,7 @@
 				},
 				"element": {
 					"type": "static_select",
+					"action_id": "kudo_type",
 					"placeholder": {
 						"type": "plain_text",
 						"text": "Selecione o tipo de elogio",
@@ -54,7 +56,7 @@
 						{
 							"text": {
 								"type": "plain_text",
-								"text": ":tada: Trabalho incrível",
+								"text": ":dart: Entrega Excepcional",
 								"emoji": true
 							},
 							"value": "value-0"
@@ -62,10 +64,74 @@
 						{
 							"text": {
 								"type": "plain_text",
-								"text": "🤖 Uma máquina",
+								"text": ":handshake: Espírito de Equipe",
 								"emoji": true
 							},
 							"value": "value-1"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":bulb: Ideia Brilhante",
+								"emoji": true
+							},
+							"value": "value-2"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":rocket: Acima e Além",
+								"emoji": true
+							},
+							"value": "value-3"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":mortar_board: Mestre(a) em Ensinar",
+								"emoji": true
+							},
+							"value": "value-4"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":zap: Resolvedor(a) de Problemas",
+								"emoji": true
+							},
+							"value": "value-5"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":star2: Atitude Positiva",
+								"emoji": true
+							},
+							"value": "value-6"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":seedling: Crescimento Contínuo",
+								"emoji": true
+							},
+							"value": "value-7"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":tada: Conquista do Time",
+								"emoji": true
+							},
+							"value": "value-8"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":muscle: Resiliência",
+								"emoji": true
+							},
+							"value": "value-9"
 						}
 					]
 				}
@@ -80,6 +146,7 @@
 				},
 				"element": {
 					"type": "plain_text_input",
+					"action_id": "kudo_message",
 					"multiline": true,
 					"placeholder": {
 						"type": "plain_text",

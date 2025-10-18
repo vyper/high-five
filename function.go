@@ -143,7 +143,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 						{
 							"text": {
 								"type": "plain_text",
-								"text": ":tada: Trabalho incrível",
+								"text": ":dart: Entrega Excepcional",
 								"emoji": true
 							},
 							"value": "value-0"
@@ -151,10 +151,74 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 						{
 							"text": {
 								"type": "plain_text",
-								"text": "🤖 Uma máquina",
+								"text": ":handshake: Espírito de Equipe",
 								"emoji": true
 							},
 							"value": "value-1"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":bulb: Ideia Brilhante",
+								"emoji": true
+							},
+							"value": "value-2"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":rocket: Acima e Além",
+								"emoji": true
+							},
+							"value": "value-3"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":mortar_board: Mestre(a) em Ensinar",
+								"emoji": true
+							},
+							"value": "value-4"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":zap: Resolvedor(a) de Problemas",
+								"emoji": true
+							},
+							"value": "value-5"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":star2: Atitude Positiva",
+								"emoji": true
+							},
+							"value": "value-6"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":seedling: Crescimento Contínuo",
+								"emoji": true
+							},
+							"value": "value-7"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":tada: Conquista do Time",
+								"emoji": true
+							},
+							"value": "value-8"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":muscle: Resiliência",
+								"emoji": true
+							},
+							"value": "value-9"
 						}
 					]
 				}
