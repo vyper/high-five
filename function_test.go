@@ -679,6 +679,100 @@ func TestGiveKudos_NonPOST_WithBody(t *testing.T) {
 	}
 }
 
+// TestFormatUsersForSlack_MultipleUsers tests formatting multiple users
+func TestFormatUsersForSlack_MultipleUsers(t *testing.T) {
+	userIDs := []string{"U87654321", "U11111111", "U22222222"}
+	result := formatUsersForSlack(userIDs)
+
+	expected := "<@U87654321>, <@U11111111>, <@U22222222>"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+
+	// Verify each user is formatted correctly
+	if !strings.Contains(result, "<@U87654321>") {
+		t.Error("Result should contain <@U87654321>")
+	}
+	if !strings.Contains(result, "<@U11111111>") {
+		t.Error("Result should contain <@U11111111>")
+	}
+	if !strings.Contains(result, "<@U22222222>") {
+		t.Error("Result should contain <@U22222222>")
+	}
+
+	// Verify proper comma separation
+	if !strings.Contains(result, ", ") {
+		t.Error("Result should contain comma-space separation")
+	}
+}
+
+// TestFormatUsersForSlack_SingleUser tests formatting a single user
+func TestFormatUsersForSlack_SingleUser(t *testing.T) {
+	userIDs := []string{"U87654321"}
+	result := formatUsersForSlack(userIDs)
+
+	expected := "<@U87654321>"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+// TestFormatUsersForSlack_EmptyArray tests formatting an empty array
+func TestFormatUsersForSlack_EmptyArray(t *testing.T) {
+	userIDs := []string{}
+	result := formatUsersForSlack(userIDs)
+
+	if result != "" {
+		t.Errorf("Expected empty string for empty array, got %q", result)
+	}
+}
+
+// TestFormatUsersForSlack_NilArray tests formatting a nil array
+func TestFormatUsersForSlack_NilArray(t *testing.T) {
+	var userIDs []string
+	result := formatUsersForSlack(userIDs)
+
+	if result != "" {
+		t.Errorf("Expected empty string for nil array, got %q", result)
+	}
+}
+
+// TestGiveKudos_UsesFormatUsersForSlack tests that the handler uses the formatting function
+func TestGiveKudos_UsesFormatUsersForSlack(t *testing.T) {
+	postMessageCalled := false
+
+	config := createTestConfig()
+	config.SlackAPI = &MockSlackClient{
+		PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+			postMessageCalled = true
+			return channelID, "1234567890.123456", nil
+		},
+	}
+
+	payload := ValidInteractionCallbackPayload()
+	formData := url.Values{}
+	formData.Set("payload", payload)
+	body := formData.Encode()
+
+	req := CreateSlackRequest(http.MethodPost, "application/x-www-form-urlencoded", body, config.SigningSecret)
+	req.Body = io.NopCloser(strings.NewReader(body))
+	req.URL = &url.URL{Path: "/"}
+	req.RequestURI = "/"
+
+	rr := httptest.NewRecorder()
+
+	handleKudos(rr, req, config)
+
+	if !postMessageCalled {
+		t.Error("Expected PostMessage to be called")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+}
+
 // Benchmark tests
 func BenchmarkGenerateSlackSignature(b *testing.B) {
 	secret := "test-secret"

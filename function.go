@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
@@ -75,6 +76,16 @@ func LoadConfig(getenv func(string) string) (*Config, error) {
 	}, nil
 }
 
+// formatUsersForSlack formats a list of user IDs as Slack mentions
+// Example: ["U123", "U456"] -> "<@U123>, <@U456>"
+func formatUsersForSlack(userIDs []string) string {
+	var usersFormatted []string
+	for _, userID := range userIDs {
+		usersFormatted = append(usersFormatted, fmt.Sprintf("<@%s>", userID))
+	}
+	return strings.Join(usersFormatted, ", ")
+}
+
 // giveKudos is an HTTP Cloud Function.
 func giveKudos(w http.ResponseWriter, r *http.Request) {
 	handleKudos(w, r, globalConfig)
@@ -105,10 +116,16 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 					return
 				}
 
+				var usersFormatted []string
+				for _, userID := range i.View.State.Values["kudo_users"]["kudo_users"].SelectedUsers {
+					usersFormatted = append(usersFormatted, fmt.Sprintf("<@%s>", userID))
+				}
+				usersString := strings.Join(usersFormatted, ", ")
+
 				message := fmt.Sprintf(
 					"Olá <@%s>, obrigado por elogiar: %v!\n\nVocê selecionou: %v e deixou a mensagem: \n\n> %v",
 					i.User.ID,
-					i.View.State.Values["kudo_users"]["kudo_users"].SelectedUsers,
+					usersString,
 					i.View.State.Values["kudo_type"]["kudo_type"].SelectedOption.Text.Text,
 					i.View.State.Values["kudo_message"]["kudo_message"].Value,
 				)
