@@ -40,6 +40,19 @@ var globalConfig *Config
 //go:embed screens/give-kudos.json
 var giveKudosViewTemplate string
 
+var kudoSuggestedMessages = map[string]string{
+	"entrega-excepcional":     "Sua dedicação e capricho na entrega fizeram toda a diferença!",
+	"espirito-de-equipe":      "Obrigado por estar sempre a disposição para ajudar o time!",
+	"ideia-brilhante":         "Sua ideia trouxe uma perspectiva nova e valiosa para o problema!",
+	"acima-e-alem":            "Você foi além das expectativas e isso não passou despercebido!",
+	"mestre-em-ensinar":       "Obrigado por compartilhar seu conhecimento e ajudar o time a crescer!",
+	"resolvedor-de-problemas": "Sua habilidade de resolver problemas salvou o dia!",
+	"atitude-positiva":        "Sua energia positiva contagia e motiva todo o time!",
+	"crescimento-continuo":    "Inspirador ver sua dedicação em sempre aprender e evoluir!",
+	"conquista-do-time":       "Parabéns pela conquista! Sucesso de todos nós!",
+	"resiliencia":             "Sua persistência diante dos desafios é admirável!",
+}
+
 func init() {
 	functions.HTTP("GiveKudos", giveKudos)
 
@@ -116,6 +129,13 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 					return
 				}
 
+				// Handle block_actions for dynamic modal updates
+				if i.Type == slack.InteractionTypeBlockActions {
+					handleBlockActions(w, &i, config)
+					return
+				}
+
+				// Handle view_submission for final kudos message
 				var usersFormatted []string
 				for _, userID := range i.View.State.Values["kudo_users"]["kudo_users"].SelectedUsers {
 					usersFormatted = append(usersFormatted, fmt.Sprintf("<@%s>", userID))
@@ -189,4 +209,129 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 		}
 
 	}
+}
+
+// handleBlockActions processes block_actions interactions for dynamic modal updates
+func handleBlockActions(w http.ResponseWriter, callback *slack.InteractionCallback, config *Config) {
+	// Check if this is a kudo_type selection
+	for _, action := range callback.ActionCallback.BlockActions {
+		if action.ActionID == "kudo_type" && action.SelectedOption.Value != "" {
+			// Get current message value (preserve if user already typed something)
+			currentMessage := ""
+			if callback.View.State != nil {
+				if messageBlock, ok := callback.View.State.Values["kudo_message"]; ok {
+					if messageValue, ok := messageBlock["kudo_message"]; ok {
+						currentMessage = messageValue.Value
+					}
+				}
+			}
+
+			// Only suggest message if field is empty (preserve user input)
+			suggestedMessage := ""
+			if currentMessage == "" {
+				if msg, ok := kudoSuggestedMessages[action.SelectedOption.Value]; ok {
+					suggestedMessage = msg
+				}
+			} else {
+				suggestedMessage = currentMessage
+			}
+
+			// Update the view with the suggested message
+			err := updateView(callback.View.ID, callback.View.Hash, action.SelectedOption.Value, suggestedMessage, config)
+			if err != nil {
+				log.Printf("Error updating view: %v", err)
+				http.Error(w, "Error updating modal", http.StatusInternalServerError)
+				return
+			}
+
+			// Acknowledge the action
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
+	// If no matching action found, just acknowledge
+	w.WriteHeader(http.StatusOK)
+}
+
+// updateView calls Slack's views.update API to dynamically update the modal
+func updateView(viewID, hash, selectedKudoType, messageValue string, config *Config) error {
+	// Parse the view template
+	var viewData map[string]interface{}
+	if err := json.Unmarshal([]byte(giveKudosViewTemplate), &viewData); err != nil {
+		return fmt.Errorf("error parsing view template: %w", err)
+	}
+
+	// Extract and update the view blocks
+	view, ok := viewData["view"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid view structure in template")
+	}
+
+	blocks, ok := view["blocks"].([]interface{})
+	if !ok {
+		return fmt.Errorf("invalid blocks structure in template")
+	}
+
+	// Update the message field value
+	for _, block := range blocks {
+		blockMap, ok := block.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		if blockMap["block_id"] == "kudo_message" {
+			element, ok := blockMap["element"].(map[string]interface{})
+			if ok && messageValue != "" {
+				element["initial_value"] = messageValue
+			}
+		}
+	}
+
+	// Prepare the views.update request
+	updateRequest := map[string]interface{}{
+		"view_id": viewID,
+		"hash":    hash,
+		"view":    view,
+	}
+
+	jsonBody, err := json.Marshal(updateRequest)
+	if err != nil {
+		return fmt.Errorf("error marshaling update request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://slack.com/api/views.update", bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.SlackBotToken))
+
+	resp, err := config.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("error making views.update request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response: %w", err)
+	}
+
+	// Parse response to check for errors
+	var slackResp struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error,omitempty"`
+	}
+	if err := json.Unmarshal(body, &slackResp); err != nil {
+		return fmt.Errorf("error parsing response: %w", err)
+	}
+
+	if !slackResp.OK {
+		return fmt.Errorf("slack API error: %s", slackResp.Error)
+	}
+
+	log.Printf("View updated successfully for kudo type: %s", selectedKudoType)
+	return nil
 }

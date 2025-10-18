@@ -800,3 +800,439 @@ func BenchmarkHandleKudos_ValidRequest(b *testing.B) {
 		handleKudos(rr, req, config)
 	}
 }
+
+// Tests for dynamic modal interaction (block_actions)
+
+func TestHandleBlockActions_KudoTypeSelection_EmptyMessage(t *testing.T) {
+	viewsUpdateCalled := false
+	var capturedViewID, capturedHash string
+	var capturedRequest map[string]interface{}
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				viewsUpdateCalled = true
+
+				// Capture request body
+				bodyBytes, _ := io.ReadAll(req.Body)
+				json.Unmarshal(bodyBytes, &capturedRequest)
+				capturedViewID = capturedRequest["view_id"].(string)
+				capturedHash = capturedRequest["hash"].(string)
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+			}, nil
+		},
+	}
+
+	// Create block_actions callback
+	callback := &slack.InteractionCallback{
+		Type: slack.InteractionTypeBlockActions,
+		View: slack.View{
+			ID:   "V12345",
+			Hash: "hash123",
+			State: &slack.ViewState{
+				Values: map[string]map[string]slack.BlockAction{
+					"kudo_message": {
+						"kudo_message": {Value: ""}, // Empty message
+					},
+				},
+			},
+		},
+		ActionCallback: slack.ActionCallbacks{
+			BlockActions: []*slack.BlockAction{
+				{
+					ActionID: "kudo_type",
+					SelectedOption: slack.OptionBlockObject{
+						Value: "entrega-excepcional",
+					},
+				},
+			},
+		},
+	}
+
+	rr := httptest.NewRecorder()
+	handleBlockActions(rr, callback, config)
+
+	if !viewsUpdateCalled {
+		t.Error("Expected views.update to be called")
+	}
+
+	if capturedViewID != "V12345" {
+		t.Errorf("Expected view_id V12345, got %s", capturedViewID)
+	}
+
+	if capturedHash != "hash123" {
+		t.Errorf("Expected hash hash123, got %s", capturedHash)
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", status)
+	}
+}
+
+func TestHandleBlockActions_KudoTypeSelection_PreservesExistingMessage(t *testing.T) {
+	viewsUpdateCalled := false
+	var capturedRequest map[string]interface{}
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				viewsUpdateCalled = true
+
+				// Capture request body
+				bodyBytes, _ := io.ReadAll(req.Body)
+				json.Unmarshal(bodyBytes, &capturedRequest)
+
+				// Check that existing message is preserved
+				view := capturedRequest["view"].(map[string]interface{})
+				blocks := view["blocks"].([]interface{})
+				for _, block := range blocks {
+					blockMap := block.(map[string]interface{})
+					if blockMap["block_id"] == "kudo_message" {
+						element := blockMap["element"].(map[string]interface{})
+						if initialValue, ok := element["initial_value"].(string); ok {
+							if initialValue != "User typed this message" {
+								t.Errorf("Expected existing message to be preserved, got: %s", initialValue)
+							}
+						}
+					}
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"ok": true}`))}, nil
+		},
+	}
+
+	// Create block_actions callback with existing message
+	callback := &slack.InteractionCallback{
+		Type: slack.InteractionTypeBlockActions,
+		View: slack.View{
+			ID:   "V12345",
+			Hash: "hash123",
+			State: &slack.ViewState{
+				Values: map[string]map[string]slack.BlockAction{
+					"kudo_message": {
+						"kudo_message": {Value: "User typed this message"}, // Existing message
+					},
+				},
+			},
+		},
+		ActionCallback: slack.ActionCallbacks{
+			BlockActions: []*slack.BlockAction{
+				{
+					ActionID: "kudo_type",
+					SelectedOption: slack.OptionBlockObject{
+						Value: "entrega-excepcional",
+					},
+				},
+			},
+		},
+	}
+
+	rr := httptest.NewRecorder()
+	handleBlockActions(rr, callback, config)
+
+	if !viewsUpdateCalled {
+		t.Error("Expected views.update to be called")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", status)
+	}
+}
+
+func TestHandleBlockActions_NonKudoTypeAction(t *testing.T) {
+	viewsUpdateCalled := false
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				viewsUpdateCalled = true
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"ok": true}`))}, nil
+		},
+	}
+
+	// Create block_actions callback for different action
+	callback := &slack.InteractionCallback{
+		Type: slack.InteractionTypeBlockActions,
+		View: slack.View{
+			ID:   "V12345",
+			Hash: "hash123",
+		},
+		ActionCallback: slack.ActionCallbacks{
+			BlockActions: []*slack.BlockAction{
+				{
+					ActionID: "some_other_action", // Not kudo_type
+					SelectedOption: slack.OptionBlockObject{
+						Value: "some-value",
+					},
+				},
+			},
+		},
+	}
+
+	rr := httptest.NewRecorder()
+	handleBlockActions(rr, callback, config)
+
+	if viewsUpdateCalled {
+		t.Error("Expected views.update NOT to be called for non-kudo_type actions")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", status)
+	}
+}
+
+func TestHandleBlockActions_EmptyBlockActions(t *testing.T) {
+	viewsUpdateCalled := false
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				viewsUpdateCalled = true
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"ok": true}`))}, nil
+		},
+	}
+
+	callback := &slack.InteractionCallback{
+		Type: slack.InteractionTypeBlockActions,
+		View: slack.View{
+			ID:   "V12345",
+			Hash: "hash123",
+		},
+		ActionCallback: slack.ActionCallbacks{
+			BlockActions: []*slack.BlockAction{}, // Empty actions
+		},
+	}
+
+	rr := httptest.NewRecorder()
+	handleBlockActions(rr, callback, config)
+
+	if viewsUpdateCalled {
+		t.Error("Expected views.update NOT to be called for empty block actions")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", status)
+	}
+}
+
+func TestUpdateView_Success(t *testing.T) {
+	viewsUpdateCalled := false
+	var capturedAuthHeader string
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			viewsUpdateCalled = true
+			capturedAuthHeader = req.Header.Get("Authorization")
+
+			if req.Header.Get("Content-Type") != "application/json" {
+				t.Error("Expected Content-Type to be application/json")
+			}
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+			}, nil
+		},
+	}
+
+	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	if !viewsUpdateCalled {
+		t.Error("Expected views.update to be called")
+	}
+
+	expectedAuth := "Bearer xoxb-test-token"
+	if capturedAuthHeader != expectedAuth {
+		t.Errorf("Expected Authorization header %s, got %s", expectedAuth, capturedAuthHeader)
+	}
+}
+
+func TestUpdateView_SlackAPIError(t *testing.T) {
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"ok": false, "error": "invalid_view"}`)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+			}, nil
+		},
+	}
+
+	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+
+	if err == nil {
+		t.Error("Expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "invalid_view") {
+		t.Errorf("Expected error to contain 'invalid_view', got: %v", err)
+	}
+}
+
+func TestUpdateView_HTTPError(t *testing.T) {
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return nil, errors.New("network error")
+		},
+	}
+
+	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+
+	if err == nil {
+		t.Error("Expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "network error") {
+		t.Errorf("Expected error to contain 'network error', got: %v", err)
+	}
+}
+
+func TestUpdateView_EmptyMessage(t *testing.T) {
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			// Check that initial_value is not set for empty message
+			bodyBytes, _ := io.ReadAll(req.Body)
+			var requestBody map[string]interface{}
+			json.Unmarshal(bodyBytes, &requestBody)
+
+			view := requestBody["view"].(map[string]interface{})
+			blocks := view["blocks"].([]interface{})
+			for _, block := range blocks {
+				blockMap := block.(map[string]interface{})
+				if blockMap["block_id"] == "kudo_message" {
+					element := blockMap["element"].(map[string]interface{})
+					if _, hasInitialValue := element["initial_value"]; hasInitialValue {
+						t.Error("Expected initial_value NOT to be set for empty message")
+					}
+				}
+			}
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+			}, nil
+		},
+	}
+
+	err := updateView("V12345", "hash123", "entrega-excepcional", "", config) // Empty message
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+}
+
+func TestGiveKudos_BlockActionsIntegration(t *testing.T) {
+	viewsUpdateCalled := false
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				viewsUpdateCalled = true
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+			}, nil
+		},
+	}
+
+	// Create block_actions payload
+	blockActionsPayload := map[string]interface{}{
+		"type": "block_actions",
+		"user": map[string]interface{}{"id": "U123"},
+		"view": map[string]interface{}{
+			"id":   "V12345",
+			"hash": "hash123",
+			"state": map[string]interface{}{
+				"values": map[string]interface{}{
+					"kudo_message": map[string]interface{}{
+						"kudo_message": map[string]interface{}{
+							"value": "",
+						},
+					},
+				},
+			},
+		},
+		"actions": []interface{}{
+			map[string]interface{}{
+				"action_id": "kudo_type",
+				"block_id":  "kudo_type",
+				"type":      "static_select",
+				"selected_option": map[string]interface{}{
+					"value": "entrega-excepcional",
+					"text": map[string]interface{}{
+						"type": "plain_text",
+						"text": "Entrega Excepcional",
+					},
+				},
+			},
+		},
+	}
+
+	payloadJSON, _ := json.Marshal(blockActionsPayload)
+
+	formData := url.Values{}
+	formData.Set("payload", string(payloadJSON))
+	body := formData.Encode()
+
+	req := CreateSlackRequest(http.MethodPost, "application/x-www-form-urlencoded", body, config.SigningSecret)
+	req.Body = io.NopCloser(strings.NewReader(body))
+	req.URL = &url.URL{Path: "/"}
+	req.RequestURI = "/"
+
+	rr := httptest.NewRecorder()
+	handleKudos(rr, req, config)
+
+	if !viewsUpdateCalled {
+		t.Error("Expected views.update to be called for block_actions interaction")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", status)
+	}
+}
+
+func TestKudoSuggestedMessages_AllTypesPresent(t *testing.T) {
+	expectedTypes := []string{"entrega-excepcional", "espirito-de-equipe", "ideia-brilhante", "acima-e-alem", "mestre-em-ensinar", "resolvedor-de-problemas", "atitude-positiva", "crescimento-continuo", "conquista-do-time", "resiliencia"}
+
+	for _, kudoType := range expectedTypes {
+		message, exists := kudoSuggestedMessages[kudoType]
+		if !exists {
+			t.Errorf("Expected kudoSuggestedMessages to have entry for %s", kudoType)
+		}
+		if message == "" {
+			t.Errorf("Expected non-empty message for %s", kudoType)
+		}
+	}
+}

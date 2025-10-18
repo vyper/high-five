@@ -39,6 +39,7 @@
 			{
 				"type": "input",
 				"block_id": "kudo_type",
+				"dispatch_action": true,
 				"label": {
 					"type": "plain_text",
 					"text": "Tipo",
@@ -59,7 +60,7 @@
 								"text": ":dart: Entrega Excepcional",
 								"emoji": true
 							},
-							"value": "value-0"
+							"value": "entrega-excepcional"
 						},
 						{
 							"text": {
@@ -67,7 +68,7 @@
 								"text": ":handshake: Espírito de Equipe",
 								"emoji": true
 							},
-							"value": "value-1"
+							"value": "espirito-de-equipe"
 						},
 						{
 							"text": {
@@ -75,7 +76,7 @@
 								"text": ":bulb: Ideia Brilhante",
 								"emoji": true
 							},
-							"value": "value-2"
+							"value": "ideia-brilhante"
 						},
 						{
 							"text": {
@@ -83,7 +84,7 @@
 								"text": ":rocket: Acima e Além",
 								"emoji": true
 							},
-							"value": "value-3"
+							"value": "acima-e-alem"
 						},
 						{
 							"text": {
@@ -91,7 +92,7 @@
 								"text": ":mortar_board: Mestre(a) em Ensinar",
 								"emoji": true
 							},
-							"value": "value-4"
+							"value": "mestre-em-ensinar"
 						},
 						{
 							"text": {
@@ -99,7 +100,7 @@
 								"text": ":zap: Resolvedor(a) de Problemas",
 								"emoji": true
 							},
-							"value": "value-5"
+							"value": "resolvedor-de-problemas"
 						},
 						{
 							"text": {
@@ -107,7 +108,7 @@
 								"text": ":star2: Atitude Positiva",
 								"emoji": true
 							},
-							"value": "value-6"
+							"value": "atitude-positiva"
 						},
 						{
 							"text": {
@@ -115,7 +116,7 @@
 								"text": ":seedling: Crescimento Contínuo",
 								"emoji": true
 							},
-							"value": "value-7"
+							"value": "crescimento-continuo"
 						},
 						{
 							"text": {
@@ -123,7 +124,7 @@
 								"text": ":tada: Conquista do Time",
 								"emoji": true
 							},
-							"value": "value-8"
+							"value": "conquista-do-time"
 						},
 						{
 							"text": {
@@ -131,7 +132,7 @@
 								"text": ":muscle: Resiliência",
 								"emoji": true
 							},
-							"value": "value-9"
+							"value": "resiliencia"
 						}
 					]
 				}

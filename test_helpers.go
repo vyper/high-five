@@ -77,7 +77,7 @@ func ValidInteractionCallbackPayload() string {
 									"type": "plain_text",
 									"text": ":dart: Entrega Excepcional"
 								},
-								"value": "value-0"
+								"value": "entrega-excepcional"
 							}
 						}
 					},
@@ -118,7 +118,7 @@ func ValidInteractionCallbackPayloadNoMessage() string {
 									"type": "plain_text",
 									"text": ":handshake: Espírito de Equipe"
 								},
-								"value": "value-1"
+								"value": "espirito-de-equipe"
 							}
 						}
 					},
