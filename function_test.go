@@ -1309,3 +1309,173 @@ func TestFormatAsSlackQuote_EmptyLines(t *testing.T) {
 		}
 	}
 }
+
+// TestFormatKudosAsBlocks tests the Block Kit message formatting
+func TestFormatKudosAsBlocks(t *testing.T) {
+	senderID := "U12345678"
+	recipientIDs := []string{"U87654321", "U11111111"}
+	kudoTypeEmoji := ":zap:"
+	kudoTypeText := "Resolvedor(a) de Problemas"
+	message := "Sua habilidade de resolver problemas salvou o dia!\n\nMúltiplas linhas aqui."
+
+	blocks := formatKudosAsBlocks(senderID, recipientIDs, kudoTypeEmoji, kudoTypeText, message)
+
+	// Verify number of blocks (header, section, divider, section, section, divider, context)
+	expectedBlockCount := 7
+	if len(blocks) != expectedBlockCount {
+		t.Errorf("Expected %d blocks, got %d", expectedBlockCount, len(blocks))
+	}
+
+	// Verify header block
+	headerBlock, ok := blocks[0].(*slack.HeaderBlock)
+	if !ok {
+		t.Errorf("Expected first block to be HeaderBlock, got %T", blocks[0])
+	} else {
+		if headerBlock.Text.Text != "🎉 Novo Elogio! 🎉" {
+			t.Errorf("Expected header text '🎉 Novo Elogio! 🎉', got %q", headerBlock.Text.Text)
+		}
+	}
+
+	// Verify section with fields (De/Para)
+	sectionBlock, ok := blocks[1].(*slack.SectionBlock)
+	if !ok {
+		t.Errorf("Expected second block to be SectionBlock, got %T", blocks[1])
+	} else {
+		if len(sectionBlock.Fields) != 2 {
+			t.Errorf("Expected 2 fields in section block, got %d", len(sectionBlock.Fields))
+		} else {
+			if !strings.Contains(sectionBlock.Fields[0].Text, "De:") {
+				t.Error("Expected first field to contain 'De:'")
+			}
+			if !strings.Contains(sectionBlock.Fields[0].Text, senderID) {
+				t.Errorf("Expected first field to contain sender ID %s", senderID)
+			}
+			if !strings.Contains(sectionBlock.Fields[1].Text, "Para:") {
+				t.Error("Expected second field to contain 'Para:'")
+			}
+			if !strings.Contains(sectionBlock.Fields[1].Text, "U87654321") {
+				t.Error("Expected second field to contain recipient U87654321")
+			}
+			if !strings.Contains(sectionBlock.Fields[1].Text, "U11111111") {
+				t.Error("Expected second field to contain recipient U11111111")
+			}
+		}
+	}
+
+	// Verify divider
+	_, ok = blocks[2].(*slack.DividerBlock)
+	if !ok {
+		t.Errorf("Expected third block to be DividerBlock, got %T", blocks[2])
+	}
+
+	// Verify kudos type section
+	kudoTypeBlock, ok := blocks[3].(*slack.SectionBlock)
+	if !ok {
+		t.Errorf("Expected fourth block to be SectionBlock, got %T", blocks[3])
+	} else {
+		if !strings.Contains(kudoTypeBlock.Text.Text, kudoTypeEmoji) {
+			t.Errorf("Expected kudos type block to contain emoji %s", kudoTypeEmoji)
+		}
+		if !strings.Contains(kudoTypeBlock.Text.Text, kudoTypeText) {
+			t.Errorf("Expected kudos type block to contain text %s", kudoTypeText)
+		}
+	}
+
+	// Verify message section (quoted)
+	messageBlock, ok := blocks[4].(*slack.SectionBlock)
+	if !ok {
+		t.Errorf("Expected fifth block to be SectionBlock, got %T", blocks[4])
+	} else {
+		if !strings.HasPrefix(messageBlock.Text.Text, "> ") {
+			t.Error("Expected message to be formatted as quote (starting with '> ')")
+		}
+		if !strings.Contains(messageBlock.Text.Text, "Sua habilidade de resolver problemas salvou o dia!") {
+			t.Error("Expected message block to contain the original message content")
+		}
+	}
+
+	// Verify divider
+	_, ok = blocks[5].(*slack.DividerBlock)
+	if !ok {
+		t.Errorf("Expected sixth block to be DividerBlock, got %T", blocks[5])
+	}
+
+	// Verify context (footer)
+	contextBlock, ok := blocks[6].(*slack.ContextBlock)
+	if !ok {
+		t.Errorf("Expected seventh block to be ContextBlock, got %T", blocks[6])
+	} else {
+		if len(contextBlock.ContextElements.Elements) == 0 {
+			t.Error("Expected context block to have elements")
+		}
+	}
+}
+
+// TestFormatKudosAsBlocks_EmptyMessage tests Block Kit formatting with empty message
+func TestFormatKudosAsBlocks_EmptyMessage(t *testing.T) {
+	senderID := "U12345678"
+	recipientIDs := []string{"U87654321"}
+	kudoTypeEmoji := ":dart:"
+	kudoTypeText := "Entrega Excepcional"
+	message := ""
+
+	blocks := formatKudosAsBlocks(senderID, recipientIDs, kudoTypeEmoji, kudoTypeText, message)
+
+	// Should still create all blocks even with empty message
+	if len(blocks) != 7 {
+		t.Errorf("Expected 7 blocks even with empty message, got %d", len(blocks))
+	}
+
+	// Verify message block has empty quoted string
+	messageBlock, ok := blocks[4].(*slack.SectionBlock)
+	if !ok {
+		t.Errorf("Expected fifth block to be SectionBlock, got %T", blocks[4])
+	} else {
+		if messageBlock.Text.Text != "" {
+			t.Errorf("Expected empty message block, got %q", messageBlock.Text.Text)
+		}
+	}
+}
+
+// TestGiveKudos_PostsBlockKitMessage tests that the handler posts Block Kit formatted messages
+func TestGiveKudos_PostsBlockKitMessage(t *testing.T) {
+	postMessageCalled := false
+	var capturedOptions []slack.MsgOption
+
+	config := createTestConfig()
+	config.SlackAPI = &MockSlackClient{
+		PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+			postMessageCalled = true
+			capturedOptions = options
+			return channelID, "1234567890.123456", nil
+		},
+	}
+
+	payload := ValidInteractionCallbackPayload()
+	formData := url.Values{}
+	formData.Set("payload", payload)
+	body := formData.Encode()
+
+	req := CreateSlackRequest(http.MethodPost, "application/x-www-form-urlencoded", body, config.SigningSecret)
+	req.Body = io.NopCloser(strings.NewReader(body))
+	req.URL = &url.URL{Path: "/"}
+	req.RequestURI = "/"
+
+	rr := httptest.NewRecorder()
+
+	handleKudos(rr, req, config)
+
+	if !postMessageCalled {
+		t.Error("Expected PostMessage to be called")
+	}
+
+	// Verify that we're passing options (blocks + fallback text)
+	if len(capturedOptions) == 0 {
+		t.Error("Expected PostMessage to be called with options")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+}

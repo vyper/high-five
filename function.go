@@ -113,6 +113,67 @@ func formatAsSlackQuote(message string) string {
 	return strings.Join(quotedLines, "\n")
 }
 
+// formatKudosAsBlocks creates a Slack Block Kit message for kudos
+func formatKudosAsBlocks(senderID string, recipientIDs []string, kudoTypeEmoji string, kudoTypeText string, message string) []slack.Block {
+	recipientsFormatted := formatUsersForSlack(recipientIDs)
+	quotedMessage := formatAsSlackQuote(message)
+
+	emojiTrue := true
+	blocks := []slack.Block{
+		slack.NewHeaderBlock(
+			&slack.TextBlockObject{
+				Type:  slack.PlainTextType,
+				Text:  "🎉 Novo Elogio! 🎉",
+				Emoji: &emojiTrue,
+			},
+		),
+
+		slack.NewSectionBlock(
+			nil,
+			[]*slack.TextBlockObject{
+				{
+					Type: slack.MarkdownType,
+					Text: fmt.Sprintf("*De:*\n<@%s>", senderID),
+				},
+				{
+					Type: slack.MarkdownType,
+					Text: fmt.Sprintf("*Para:*\n%s", recipientsFormatted),
+				},
+			},
+			nil,
+		),
+
+		slack.NewDividerBlock(),
+
+		slack.NewSectionBlock(
+			&slack.TextBlockObject{
+				Type: slack.MarkdownType,
+				Text: fmt.Sprintf("%s *%s*", kudoTypeEmoji, kudoTypeText),
+			},
+			nil,
+			nil,
+		),
+
+		slack.NewSectionBlock(
+			&slack.TextBlockObject{
+				Type: slack.MarkdownType,
+				Text: quotedMessage,
+			},
+			nil,
+			nil,
+		),
+
+		slack.NewDividerBlock(),
+
+		slack.NewContextBlock(
+			"",
+			slack.NewTextBlockObject(slack.MarkdownType, "✨ _Continue fazendo a diferença!_ ✨", false, false),
+		),
+	}
+
+	return blocks
+}
+
 // giveKudos is an HTTP Cloud Function.
 func giveKudos(w http.ResponseWriter, r *http.Request) {
 	handleKudos(w, r, globalConfig)
@@ -150,24 +211,41 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 				}
 
 				// Handle view_submission for final kudos message
-				var usersFormatted []string
-				for _, userID := range i.View.State.Values["kudo_users"]["kudo_users"].SelectedUsers {
-					usersFormatted = append(usersFormatted, fmt.Sprintf("<@%s>", userID))
-				}
-				usersString := strings.Join(usersFormatted, ", ")
-
+				selectedUsers := i.View.State.Values["kudo_users"]["kudo_users"].SelectedUsers
 				kudoMessage := i.View.State.Values["kudo_message"]["kudo_message"].Value
-				quotedMessage := formatAsSlackQuote(kudoMessage)
+				kudoTypeFullText := i.View.State.Values["kudo_type"]["kudo_type"].SelectedOption.Text.Text
+				kudoTypeValue := i.View.State.Values["kudo_type"]["kudo_type"].SelectedOption.Value
 
-				message := fmt.Sprintf(
-					"Olá <@%s>, obrigado por elogiar: %v!\n\nVocê selecionou: %v e deixou a mensagem:\n\n%v",
-					i.User.ID,
+				// If the user didn't interact with the message field, use the suggested message
+				if kudoMessage == "" {
+					if suggestedMsg, ok := kudoSuggestedMessages[kudoTypeValue]; ok {
+						kudoMessage = suggestedMsg
+					}
+				}
+
+				kudoTypeEmoji := ""
+				kudoTypeText := kudoTypeFullText
+				if idx := strings.Index(kudoTypeFullText, " "); idx > 0 {
+					kudoTypeEmoji = kudoTypeFullText[:idx]  // ":zap:"
+					kudoTypeText = kudoTypeFullText[idx+1:] // "Resolvedor(a) de Problemas"
+				}
+
+				blocks := formatKudosAsBlocks(i.User.ID, selectedUsers, kudoTypeEmoji, kudoTypeText, kudoMessage)
+
+				usersString := formatUsersForSlack(selectedUsers)
+				fallbackText := fmt.Sprintf(
+					"%s elogiou %s: %s %s",
+					fmt.Sprintf("<@%s>", i.User.ID),
 					usersString,
-					i.View.State.Values["kudo_type"]["kudo_type"].SelectedOption.Text.Text,
-					quotedMessage,
+					kudoTypeEmoji,
+					kudoTypeText,
 				)
 
-				respChannelID, timestamp, err := config.SlackAPI.PostMessage(config.SlackChannelID, slack.MsgOptionText(message, false))
+				respChannelID, timestamp, err := config.SlackAPI.PostMessage(
+					config.SlackChannelID,
+					slack.MsgOptionBlocks(blocks...),
+					slack.MsgOptionText(fallbackText, false),
+				)
 				if err != nil {
 					log.Printf("Error posting message: %v", err)
 				} else {
