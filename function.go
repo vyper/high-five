@@ -4,49 +4,84 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"io"
-
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/slack-go/slack"
 )
 
-var slackApi *slack.Client
-var slackChannelID string
-var slackBotToken string
-var signingSecret string
+// HTTPClient interface for mocking HTTP calls
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// SlackClient interface for mocking Slack API calls
+type SlackClient interface {
+	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
+}
+
+// Config holds the configuration for the function
+type Config struct {
+	SlackBotToken   string
+	SlackChannelID  string
+	SigningSecret   string
+	SlackAPI        SlackClient
+	HTTPClient      HTTPClient
+}
+
+var globalConfig *Config
 
 func init() {
 	functions.HTTP("GiveKudos", giveKudos)
 
-	slackBotToken = os.Getenv("SLACK_BOT_TOKEN")
+	config, err := LoadConfig(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
+	}
+	globalConfig = config
+}
+
+// LoadConfig loads configuration from environment variables
+func LoadConfig(getenv func(string) string) (*Config, error) {
+	slackBotToken := getenv("SLACK_BOT_TOKEN")
 	if slackBotToken == "" {
-		log.Fatal("SLACK_BOT_TOKEN environment variable is required")
+		return nil, fmt.Errorf("SLACK_BOT_TOKEN environment variable is required")
 	}
 
-	slackChannelID = os.Getenv("SLACK_CHANNEL_ID")
+	slackChannelID := getenv("SLACK_CHANNEL_ID")
 	if slackChannelID == "" {
-		log.Fatal("SLACK_CHANNEL_ID environment variable is required")
+		return nil, fmt.Errorf("SLACK_CHANNEL_ID environment variable is required")
 	}
 
-	signingSecret = os.Getenv("SLACK_SIGNING_SECRET")
+	signingSecret := getenv("SLACK_SIGNING_SECRET")
 	if signingSecret == "" {
-		log.Fatal("SLACK_SIGNING_SECRET environment variable is required")
+		return nil, fmt.Errorf("SLACK_SIGNING_SECRET environment variable is required")
 	}
 
-	slackApi = slack.New(slackBotToken, slack.OptionDebug(true))
+	return &Config{
+		SlackBotToken:  slackBotToken,
+		SlackChannelID: slackChannelID,
+		SigningSecret:  signingSecret,
+		SlackAPI:       slack.New(slackBotToken, slack.OptionDebug(true)),
+		HTTPClient:     &http.Client{Timeout: time.Second * 10},
+	}, nil
 }
 
 // giveKudos is an HTTP Cloud Function.
 func giveKudos(w http.ResponseWriter, r *http.Request) {
+	handleKudos(w, r, globalConfig)
+}
+
+// handleKudos processes the kudos request with injectable config
+func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 	fmt.Printf("Method: %s\n", r.Method)
 	fmt.Printf("Content-Type: %s\n", r.Header.Get("Content-Type"))
 
-	_, err := slack.NewSecretsVerifier(r.Header, signingSecret)
+	_, err := slack.NewSecretsVerifier(r.Header, config.SigningSecret)
 	if err != nil {
 		log.Printf("Invalid Slack Signin Secret: %v", err)
 		http.Error(w, "Invalid Slack Signin Secret", http.StatusUnauthorized)
@@ -74,16 +109,13 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 					i.View.State.Values["kudo_message"]["kudo_message"].Value,
 				)
 
-				respChannelID, timestamp, err := slackApi.PostMessage(slackChannelID, slack.MsgOptionText(message, false))
+				respChannelID, timestamp, err := config.SlackAPI.PostMessage(config.SlackChannelID, slack.MsgOptionText(message, false))
 				if err != nil {
 					log.Printf("Error posting message: %v", err)
 				} else {
 					fmt.Printf("Message posted to channel %s at %s\n", respChannelID, timestamp)
 				}
 			} else {
-				client := &http.Client{
-					Timeout: time.Second * 10,
-				}
 
 				jsonBody := []byte(fmt.Sprintf(`{
 	"trigger_id": "%s",
@@ -255,9 +287,9 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 				}
 
 				req.Header.Add("Content-Type", "application/json")
-				req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", slackBotToken))
+				req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.SlackBotToken))
 
-				resp, err := client.Do(req)
+				resp, err := config.HTTPClient.Do(req)
 				if err != nil {
 					fmt.Printf("Error making POST request: %v\n", err)
 					return
