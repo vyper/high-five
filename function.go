@@ -2,6 +2,7 @@ package function
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,14 +27,17 @@ type SlackClient interface {
 
 // Config holds the configuration for the function
 type Config struct {
-	SlackBotToken   string
-	SlackChannelID  string
-	SigningSecret   string
-	SlackAPI        SlackClient
-	HTTPClient      HTTPClient
+	SlackBotToken  string
+	SlackChannelID string
+	SigningSecret  string
+	SlackAPI       SlackClient
+	HTTPClient     HTTPClient
 }
 
 var globalConfig *Config
+
+//go:embed screens/give-kudos.json
+var giveKudosViewTemplate string
 
 func init() {
 	functions.HTTP("GiveKudos", giveKudos)
@@ -116,168 +120,21 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 					fmt.Printf("Message posted to channel %s at %s\n", respChannelID, timestamp)
 				}
 			} else {
+				var viewRequest map[string]interface{}
+				if err := json.Unmarshal([]byte(giveKudosViewTemplate), &viewRequest); err != nil {
+					log.Printf("Error parsing view template: %v", err)
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
 
-				jsonBody := []byte(fmt.Sprintf(`{
-	"trigger_id": "%s",
-	"view": {
-		"type": "modal",
-		"submit": {
-			"type": "plain_text",
-			"text": "Elogiar!",
-			"emoji": true
-		},
-		"close": {
-			"type": "plain_text",
-			"text": "Cancelar",
-			"emoji": true
-		},
-		"title": {
-			"type": "plain_text",
-			"text": "Dê elogio",
-			"emoji": true
-		},
-		"blocks": [
-			{
-				"type": "input",
-				"block_id": "kudo_users",
-				"label": {
-					"type": "plain_text",
-					"text": "Para",
-					"emoji": true
-				},
-				"element": {
-					"type": "multi_users_select",
-					"action_id": "kudo_users",
-					"placeholder": {
-						"type": "plain_text",
-						"text": "Selecione os elogiados",
-						"emoji": true
-					}
+				viewRequest["trigger_id"] = r.FormValue("trigger_id")
+
+				jsonBody, err := json.Marshal(viewRequest)
+				if err != nil {
+					log.Printf("Error marshaling view request: %v", err)
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
 				}
-			},
-			{
-				"type": "input",
-				"block_id": "kudo_type",
-				"label": {
-					"type": "plain_text",
-					"text": "Tipo",
-					"emoji": true
-				},
-				"element": {
-					"type": "static_select",
-					"action_id": "kudo_type",
-					"placeholder": {
-						"type": "plain_text",
-						"text": "Selecione o tipo de elogio",
-						"emoji": true
-					},
-					"options": [
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":dart: Entrega Excepcional",
-								"emoji": true
-							},
-							"value": "value-0"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":handshake: Espírito de Equipe",
-								"emoji": true
-							},
-							"value": "value-1"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":bulb: Ideia Brilhante",
-								"emoji": true
-							},
-							"value": "value-2"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":rocket: Acima e Além",
-								"emoji": true
-							},
-							"value": "value-3"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":mortar_board: Mestre(a) em Ensinar",
-								"emoji": true
-							},
-							"value": "value-4"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":zap: Resolvedor(a) de Problemas",
-								"emoji": true
-							},
-							"value": "value-5"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":star2: Atitude Positiva",
-								"emoji": true
-							},
-							"value": "value-6"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":seedling: Crescimento Contínuo",
-								"emoji": true
-							},
-							"value": "value-7"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":tada: Conquista do Time",
-								"emoji": true
-							},
-							"value": "value-8"
-						},
-						{
-							"text": {
-								"type": "plain_text",
-								"text": ":muscle: Resiliência",
-								"emoji": true
-							},
-							"value": "value-9"
-						}
-					]
-				}
-			},
-			{
-				"type": "input",
-				"block_id": "kudo_message",
-				"label": {
-					"type": "plain_text",
-					"text": "Mensagem",
-					"emoji": true
-				},
-				"element": {
-					"type": "plain_text_input",
-					"action_id": "kudo_message",
-					"multiline": true,
-					"placeholder": {
-						"type": "plain_text",
-						"text": "Deixe uma mensagem junto",
-						"emoji": true
-					}
-				},
-				"optional": true
-			}
-		]
-	}
-}`, r.FormValue("trigger_id")))
 				bodyReader := bytes.NewReader(jsonBody)
 
 				req, err := http.NewRequest("POST", "https://slack.com/api/views.open", bodyReader)
