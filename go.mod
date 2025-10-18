@@ -2,7 +2,10 @@ module github.com/vyper/my-matter
 
 go 1.25
 
-require github.com/GoogleCloudPlatform/functions-framework-go v1.9.2
+require (
+	github.com/GoogleCloudPlatform/functions-framework-go v1.9.2
+	github.com/slack-go/slack v0.17.3
+)
 
 require (
 	cloud.google.com/go/functions v1.19.3 // indirect
@@ -12,7 +15,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/slack-go/slack v0.17.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 )
