@@ -23,6 +23,20 @@ LOCAL_ONLY=true go run cmd/main.go
 PORT=3000 go run cmd/main.go
 ```
 
+### Running Tests
+
+```bash
+# Run all tests
+SLACK_BOT_TOKEN=xoxb-test SLACK_CHANNEL_ID=C123 SLACK_SIGNING_SECRET=secret go test -v
+
+# Generate coverage report
+SLACK_BOT_TOKEN=xoxb-test SLACK_CHANNEL_ID=C123 SLACK_SIGNING_SECRET=secret go test -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+
+# Run benchmarks
+SLACK_BOT_TOKEN=xoxb-test SLACK_CHANNEL_ID=C123 SLACK_SIGNING_SECRET=secret go test -bench=. -benchmem
+```
+
 ### Deployment
 ```bash
 # Deploy to Google Cloud Functions Gen2

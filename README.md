@@ -42,3 +42,17 @@ go run main.go
 ```
 
 The function will be available at `http://localhost:8080`
+
+### Running tests
+
+```bash
+# Run all tests
+SLACK_BOT_TOKEN=xoxb-test SLACK_CHANNEL_ID=C123 SLACK_SIGNING_SECRET=secret go test -v
+
+# Generate coverage report
+SLACK_BOT_TOKEN=xoxb-test SLACK_CHANNEL_ID=C123 SLACK_SIGNING_SECRET=secret go test -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+
+# Run benchmarks
+SLACK_BOT_TOKEN=xoxb-test SLACK_CHANNEL_ID=C123 SLACK_SIGNING_SECRET=secret go test -bench=. -benchmem
+```
