@@ -99,6 +99,20 @@ func formatUsersForSlack(userIDs []string) string {
 	return strings.Join(usersFormatted, ", ")
 }
 
+// formatAsSlackQuote formats a message as a Slack quote block
+// Adds "> " prefix to each line to maintain quote formatting
+func formatAsSlackQuote(message string) string {
+	if message == "" {
+		return ""
+	}
+	lines := strings.Split(message, "\n")
+	var quotedLines []string
+	for _, line := range lines {
+		quotedLines = append(quotedLines, "> "+line)
+	}
+	return strings.Join(quotedLines, "\n")
+}
+
 // giveKudos is an HTTP Cloud Function.
 func giveKudos(w http.ResponseWriter, r *http.Request) {
 	handleKudos(w, r, globalConfig)
@@ -142,12 +156,15 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 				}
 				usersString := strings.Join(usersFormatted, ", ")
 
+				kudoMessage := i.View.State.Values["kudo_message"]["kudo_message"].Value
+				quotedMessage := formatAsSlackQuote(kudoMessage)
+
 				message := fmt.Sprintf(
-					"Olá <@%s>, obrigado por elogiar: %v!\n\nVocê selecionou: %v e deixou a mensagem: \n\n> %v",
+					"Olá <@%s>, obrigado por elogiar: %v!\n\nVocê selecionou: %v e deixou a mensagem:\n\n%v",
 					i.User.ID,
 					usersString,
 					i.View.State.Values["kudo_type"]["kudo_type"].SelectedOption.Text.Text,
-					i.View.State.Values["kudo_message"]["kudo_message"].Value,
+					quotedMessage,
 				)
 
 				respChannelID, timestamp, err := config.SlackAPI.PostMessage(config.SlackChannelID, slack.MsgOptionText(message, false))

@@ -1236,3 +1236,76 @@ func TestKudoSuggestedMessages_AllTypesPresent(t *testing.T) {
 		}
 	}
 }
+
+// TestFormatAsSlackQuote_SingleLine tests formatting a single line message
+func TestFormatAsSlackQuote_SingleLine(t *testing.T) {
+	message := "This is a single line message"
+	result := formatAsSlackQuote(message)
+
+	expected := "> This is a single line message"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+// TestFormatAsSlackQuote_MultipleLines tests formatting a multi-line message
+func TestFormatAsSlackQuote_MultipleLines(t *testing.T) {
+	message := "Inspirador ver sua dedicação em sempre aprender e evoluir!\nPodendo complementar! :D"
+	result := formatAsSlackQuote(message)
+
+	expected := "> Inspirador ver sua dedicação em sempre aprender e evoluir!\n> Podendo complementar! :D"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+
+	// Verify each line starts with "> "
+	lines := strings.Split(result, "\n")
+	if len(lines) != 2 {
+		t.Errorf("Expected 2 lines, got %d", len(lines))
+	}
+	for i, line := range lines {
+		if !strings.HasPrefix(line, "> ") {
+			t.Errorf("Line %d does not start with '> ': %q", i, line)
+		}
+	}
+}
+
+// TestFormatAsSlackQuote_ThreeLines tests formatting a three-line message
+func TestFormatAsSlackQuote_ThreeLines(t *testing.T) {
+	message := "Line one\nLine two\nLine three"
+	result := formatAsSlackQuote(message)
+
+	expected := "> Line one\n> Line two\n> Line three"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+// TestFormatAsSlackQuote_EmptyString tests formatting an empty string
+func TestFormatAsSlackQuote_EmptyString(t *testing.T) {
+	message := ""
+	result := formatAsSlackQuote(message)
+
+	if result != "" {
+		t.Errorf("Expected empty string, got %q", result)
+	}
+}
+
+// TestFormatAsSlackQuote_EmptyLines tests formatting a message with empty lines
+func TestFormatAsSlackQuote_EmptyLines(t *testing.T) {
+	message := "Line one\n\nLine three"
+	result := formatAsSlackQuote(message)
+
+	expected := "> Line one\n> \n> Line three"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+
+	// Verify all lines start with "> "
+	lines := strings.Split(result, "\n")
+	for i, line := range lines {
+		if !strings.HasPrefix(line, "> ") {
+			t.Errorf("Line %d does not start with '> ': %q", i, line)
+		}
+	}
+}
