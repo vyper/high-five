@@ -138,6 +138,16 @@
 				}
 			},
 			{
+				"type": "context",
+				"block_id": "kudo_description",
+				"elements": [
+					{
+						"type": "mrkdwn",
+						"text": "💡 _Selecione um tipo para ver sua descrição_"
+					}
+				]
+			},
+			{
 				"type": "input",
 				"block_id": "kudo_message",
 				"label": {

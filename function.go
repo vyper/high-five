@@ -53,6 +53,19 @@ var kudoSuggestedMessages = map[string]string{
 	"resiliencia":             "Sua persistência diante dos desafios é admirável!",
 }
 
+var kudoDescriptions = map[string]string{
+	"entrega-excepcional":     "Reconhecer entregas de alta qualidade, no prazo ou superando expectativas",
+	"espirito-de-equipe":      "Colaboração, ajudar colegas, trabalho em conjunto",
+	"ideia-brilhante":         "Inovação, criatividade, soluções inteligentes",
+	"acima-e-alem":            "Ir além do esperado, esforço extra",
+	"mestre-em-ensinar":       "Compartilhar conhecimento, mentorar, ensinar",
+	"resolvedor-de-problemas": "Resolver problemas complexos, troubleshooting",
+	"atitude-positiva":        "Manter o moral alto, positividade, energia boa",
+	"crescimento-continuo":    "Aprendizado, desenvolvimento pessoal, adaptabilidade",
+	"conquista-do-time":       "Vitórias coletivas, marcos alcançados",
+	"resiliencia":             "Superar desafios, persistência, lidar com adversidades",
+}
+
 func init() {
 	functions.HTTP("GiveKudos", giveKudos)
 
@@ -368,11 +381,21 @@ func updateView(viewID, hash, selectedKudoType, messageValue string, config *Con
 		return fmt.Errorf("invalid blocks structure in template")
 	}
 
-	// Update the message field value
-	for _, block := range blocks {
+	kudoTypeIndex := -1
+	descriptionBlockIndex := -1
+
+	for i, block := range blocks {
 		blockMap, ok := block.(map[string]interface{})
 		if !ok {
 			continue
+		}
+
+		if blockMap["block_id"] == "kudo_type" {
+			kudoTypeIndex = i
+		}
+
+		if blockMap["block_id"] == "kudo_description" {
+			descriptionBlockIndex = i
 		}
 
 		if blockMap["block_id"] == "kudo_message" {
@@ -381,6 +404,33 @@ func updateView(viewID, hash, selectedKudoType, messageValue string, config *Con
 				element["initial_value"] = messageValue
 			}
 		}
+	}
+
+	description := kudoDescriptions[selectedKudoType]
+	if description == "" {
+		description = "Tipo de elogio selecionado"
+	}
+
+	descriptionBlock := map[string]interface{}{
+		"type":     "context",
+		"block_id": "kudo_description",
+		"elements": []interface{}{
+			map[string]interface{}{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("💡 _%s_", description),
+			},
+		},
+	}
+
+	if descriptionBlockIndex == -1 && kudoTypeIndex != -1 {
+		insertPosition := kudoTypeIndex + 1
+		newBlocks := make([]interface{}, 0, len(blocks)+1)
+		newBlocks = append(newBlocks, blocks[:insertPosition]...)
+		newBlocks = append(newBlocks, descriptionBlock)
+		newBlocks = append(newBlocks, blocks[insertPosition:]...)
+		view["blocks"] = newBlocks
+	} else if descriptionBlockIndex != -1 {
+		blocks[descriptionBlockIndex] = descriptionBlock
 	}
 
 	// Prepare the views.update request

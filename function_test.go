@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1477,5 +1478,308 @@ func TestGiveKudos_PostsBlockKitMessage(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
+	}
+}
+
+// TestKudoDescriptions_AllTypesPresent tests that all kudo types have descriptions
+func TestKudoDescriptions_AllTypesPresent(t *testing.T) {
+	// All kudo types that have suggested messages should also have descriptions
+	for kudoType := range kudoSuggestedMessages {
+		if _, exists := kudoDescriptions[kudoType]; !exists {
+			t.Errorf("Kudo type %q has a suggested message but no description", kudoType)
+		}
+	}
+
+	// Verify we have descriptions for all expected types
+	expectedTypes := []string{
+		"entrega-excepcional",
+		"espirito-de-equipe",
+		"ideia-brilhante",
+		"acima-e-alem",
+		"mestre-em-ensinar",
+		"resolvedor-de-problemas",
+		"atitude-positiva",
+		"crescimento-continuo",
+		"conquista-do-time",
+		"resiliencia",
+	}
+
+	for _, kudoType := range expectedTypes {
+		description, exists := kudoDescriptions[kudoType]
+		if !exists {
+			t.Errorf("Expected description for kudo type %q, but not found", kudoType)
+		}
+		if description == "" {
+			t.Errorf("Description for kudo type %q is empty", kudoType)
+		}
+	}
+}
+
+// TestKudoDescriptions_NotEmpty tests that descriptions are not empty strings
+func TestKudoDescriptions_NotEmpty(t *testing.T) {
+	for kudoType, description := range kudoDescriptions {
+		if description == "" {
+			t.Errorf("Description for kudo type %q is empty", kudoType)
+		}
+		if len(description) < 10 {
+			t.Errorf("Description for kudo type %q is too short: %q", kudoType, description)
+		}
+	}
+}
+
+// TestUpdateView_AddsDescriptionBlock tests that updateView adds the description block
+func TestUpdateView_AddsDescriptionBlock(t *testing.T) {
+	descriptionBlockAdded := false
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				// Read and parse the request body
+				bodyBytes, _ := io.ReadAll(req.Body)
+				var updateRequest map[string]interface{}
+				json.Unmarshal(bodyBytes, &updateRequest)
+
+				// Check if view contains blocks
+				if view, ok := updateRequest["view"].(map[string]interface{}); ok {
+					if blocks, ok := view["blocks"].([]interface{}); ok {
+						// Look for the description block
+						for _, block := range blocks {
+							if blockMap, ok := block.(map[string]interface{}); ok {
+								if blockMap["block_id"] == "kudo_description" {
+									descriptionBlockAdded = true
+
+									// Verify it's a context block
+									if blockMap["type"] != "context" {
+										t.Errorf("Expected description block to be type 'context', got %v", blockMap["type"])
+									}
+
+									// Verify it has elements
+									if elements, ok := blockMap["elements"].([]interface{}); ok {
+										if len(elements) == 0 {
+											t.Error("Description block should have at least one element")
+										}
+										// Verify first element has text
+										if elem, ok := elements[0].(map[string]interface{}); ok {
+											if text, ok := elem["text"].(string); ok {
+												if !strings.Contains(text, "💡") {
+													t.Error("Description should contain emoji 💡")
+												}
+												if !strings.Contains(text, "_") {
+													t.Error("Description should be in italic (contain _)")
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"ok": true}`))}, nil
+		},
+	}
+
+	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+	if err != nil {
+		t.Errorf("updateView returned error: %v", err)
+	}
+
+	if !descriptionBlockAdded {
+		t.Error("Expected description block to be added to the view")
+	}
+}
+
+// TestUpdateView_DescriptionContent tests the content of each description
+func TestUpdateView_DescriptionContent(t *testing.T) {
+	testCases := []struct {
+		kudoType            string
+		expectedDescription string
+	}{
+		{"entrega-excepcional", "Reconhecer entregas de alta qualidade, no prazo ou superando expectativas"},
+		{"espirito-de-equipe", "Colaboração, ajudar colegas, trabalho em conjunto"},
+		{"ideia-brilhante", "Inovação, criatividade, soluções inteligentes"},
+		{"acima-e-alem", "Ir além do esperado, esforço extra"},
+		{"resiliencia", "Superar desafios, persistência, lidar com adversidades"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.kudoType, func(t *testing.T) {
+			descriptionFound := false
+
+			config := createTestConfig()
+			config.HTTPClient = &MockHTTPClient{
+				DoFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.String(), "views.update") {
+						bodyBytes, _ := io.ReadAll(req.Body)
+						var updateRequest map[string]interface{}
+						json.Unmarshal(bodyBytes, &updateRequest)
+
+						if view, ok := updateRequest["view"].(map[string]interface{}); ok {
+							if blocks, ok := view["blocks"].([]interface{}); ok {
+								for _, block := range blocks {
+									if blockMap, ok := block.(map[string]interface{}); ok {
+										if blockMap["block_id"] == "kudo_description" {
+											if elements, ok := blockMap["elements"].([]interface{}); ok {
+												if elem, ok := elements[0].(map[string]interface{}); ok {
+													if text, ok := elem["text"].(string); ok {
+														expectedText := fmt.Sprintf("💡 _%s_", tc.expectedDescription)
+														if text == expectedText {
+															descriptionFound = true
+														} else {
+															t.Errorf("Expected text %q, got %q", expectedText, text)
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+							Header:     http.Header{"Content-Type": []string{"application/json"}},
+						}, nil
+					}
+					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"ok": true}`))}, nil
+				},
+			}
+
+			err := updateView("V12345", "hash123", tc.kudoType, "", config)
+			if err != nil {
+				t.Errorf("updateView returned error: %v", err)
+			}
+
+			if !descriptionFound {
+				t.Errorf("Expected description %q not found for kudo type %q", tc.expectedDescription, tc.kudoType)
+			}
+		})
+	}
+}
+
+// TestUpdateView_UnknownKudoType tests handling of unknown kudo type
+func TestUpdateView_UnknownKudoType(t *testing.T) {
+	fallbackUsed := false
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				bodyBytes, _ := io.ReadAll(req.Body)
+				var updateRequest map[string]interface{}
+				json.Unmarshal(bodyBytes, &updateRequest)
+
+				if view, ok := updateRequest["view"].(map[string]interface{}); ok {
+					if blocks, ok := view["blocks"].([]interface{}); ok {
+						for _, block := range blocks {
+							if blockMap, ok := block.(map[string]interface{}); ok {
+								if blockMap["block_id"] == "kudo_description" {
+									if elements, ok := blockMap["elements"].([]interface{}); ok {
+										if elem, ok := elements[0].(map[string]interface{}); ok {
+											if text, ok := elem["text"].(string); ok {
+												if strings.Contains(text, "Tipo de elogio selecionado") {
+													fallbackUsed = true
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"ok": true}`))}, nil
+		},
+	}
+
+	// Use an unknown kudo type
+	err := updateView("V12345", "hash123", "unknown-type", "", config)
+	if err != nil {
+		t.Errorf("updateView returned error: %v", err)
+	}
+
+	if !fallbackUsed {
+		t.Error("Expected fallback description 'Tipo de elogio selecionado' to be used for unknown type")
+	}
+}
+
+// TestHandleBlockActions_UpdatesDescriptionBlock tests the full flow
+func TestHandleBlockActions_UpdatesDescriptionBlock(t *testing.T) {
+	descriptionBlockUpdated := false
+
+	config := createTestConfig()
+	config.HTTPClient = &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.Contains(req.URL.String(), "views.update") {
+				bodyBytes, _ := io.ReadAll(req.Body)
+				var updateRequest map[string]interface{}
+				json.Unmarshal(bodyBytes, &updateRequest)
+
+				if view, ok := updateRequest["view"].(map[string]interface{}); ok {
+					if blocks, ok := view["blocks"].([]interface{}); ok {
+						for _, block := range blocks {
+							if blockMap, ok := block.(map[string]interface{}); ok {
+								if blockMap["block_id"] == "kudo_description" {
+									descriptionBlockUpdated = true
+								}
+							}
+						}
+					}
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"ok": true}`))}, nil
+		},
+	}
+
+	callback := &slack.InteractionCallback{
+		Type: slack.InteractionTypeBlockActions,
+		View: slack.View{
+			ID:   "V12345",
+			Hash: "hash123",
+		},
+		ActionCallback: slack.ActionCallbacks{
+			BlockActions: []*slack.BlockAction{
+				{
+					ActionID: "kudo_type",
+					SelectedOption: slack.OptionBlockObject{
+						Value: "ideia-brilhante",
+					},
+				},
+			},
+		},
+	}
+
+	rr := httptest.NewRecorder()
+	handleBlockActions(rr, callback, config)
+
+	if !descriptionBlockUpdated {
+		t.Error("Expected description block to be updated when kudo type is selected")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", status)
 	}
 }
