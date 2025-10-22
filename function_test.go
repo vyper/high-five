@@ -17,6 +17,7 @@ import (
 	"github.com/vyper/my-matter/internal/handlers"
 	"github.com/vyper/my-matter/internal/models"
 	"github.com/vyper/my-matter/internal/services"
+	"github.com/vyper/my-matter/internal/templates"
 )
 
 // MockHTTPClient implements HTTPClient for testing
@@ -865,7 +866,7 @@ func TestHandleBlockActions_KudoTypeSelection_EmptyMessage(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
+	handlers.HandleBlockActions(rr, callback, templates.GiveKudosViewTemplate, config)
 
 	if !viewsUpdateCalled {
 		t.Error("Expected views.update to be called")
@@ -950,7 +951,7 @@ func TestHandleBlockActions_KudoTypeSelection_PreservesExistingMessage(t *testin
 	}
 
 	rr := httptest.NewRecorder()
-	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
+	handlers.HandleBlockActions(rr, callback, templates.GiveKudosViewTemplate, config)
 
 	if !viewsUpdateCalled {
 		t.Error("Expected views.update to be called")
@@ -994,7 +995,7 @@ func TestHandleBlockActions_NonKudoTypeAction(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
+	handlers.HandleBlockActions(rr, callback, templates.GiveKudosViewTemplate, config)
 
 	if viewsUpdateCalled {
 		t.Error("Expected views.update NOT to be called for non-kudo_type actions")
@@ -1030,7 +1031,7 @@ func TestHandleBlockActions_EmptyBlockActions(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
+	handlers.HandleBlockActions(rr, callback, templates.GiveKudosViewTemplate, config)
 
 	if viewsUpdateCalled {
 		t.Error("Expected views.update NOT to be called for empty block actions")
@@ -1063,7 +1064,7 @@ func TestUpdateView_Success(t *testing.T) {
 		},
 	}
 
-	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", templates.GiveKudosViewTemplate, config)
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1091,7 +1092,7 @@ func TestUpdateView_SlackAPIError(t *testing.T) {
 		},
 	}
 
-	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", templates.GiveKudosViewTemplate, config)
 
 	if err == nil {
 		t.Error("Expected error, got nil")
@@ -1110,7 +1111,7 @@ func TestUpdateView_HTTPError(t *testing.T) {
 		},
 	}
 
-	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", templates.GiveKudosViewTemplate, config)
 
 	if err == nil {
 		t.Error("Expected error, got nil")
@@ -1149,7 +1150,7 @@ func TestUpdateView_EmptyMessage(t *testing.T) {
 		},
 	}
 
-	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "", giveKudosViewTemplate, config) // Empty message
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "", templates.GiveKudosViewTemplate, config) // Empty message
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1591,7 +1592,7 @@ func TestUpdateView_AddsDescriptionBlock(t *testing.T) {
 		},
 	}
 
-	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", templates.GiveKudosViewTemplate, config)
 	if err != nil {
 		t.Errorf("updateView returned error: %v", err)
 	}
@@ -1659,7 +1660,7 @@ func TestUpdateView_DescriptionContent(t *testing.T) {
 				},
 			}
 
-			err := services.UpdateModal("V12345", "hash123", tc.kudoType, "", giveKudosViewTemplate, config)
+			err := services.UpdateModal("V12345", "hash123", tc.kudoType, "", templates.GiveKudosViewTemplate, config)
 			if err != nil {
 				t.Errorf("updateView returned error: %v", err)
 			}
@@ -1714,7 +1715,7 @@ func TestUpdateView_UnknownKudoType(t *testing.T) {
 	}
 
 	// Use an unknown kudo type
-	err := services.UpdateModal("V12345", "hash123", "unknown-type", "", giveKudosViewTemplate, config)
+	err := services.UpdateModal("V12345", "hash123", "unknown-type", "", templates.GiveKudosViewTemplate, config)
 	if err != nil {
 		t.Errorf("updateView returned error: %v", err)
 	}
@@ -1777,7 +1778,7 @@ func TestHandleBlockActions_UpdatesDescriptionBlock(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
+	handlers.HandleBlockActions(rr, callback, templates.GiveKudosViewTemplate, config)
 
 	if !descriptionBlockUpdated {
 		t.Error("Expected description block to be updated when kudo type is selected")

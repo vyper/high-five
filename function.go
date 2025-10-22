@@ -1,7 +1,6 @@
 package function
 
 import (
-	_ "embed"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -11,12 +10,10 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/vyper/my-matter/internal/config"
 	"github.com/vyper/my-matter/internal/handlers"
+	"github.com/vyper/my-matter/internal/templates"
 )
 
 var globalConfig *config.Config
-
-//go:embed screens/give-kudos.json
-var giveKudosViewTemplate string
 
 func init() {
 	functions.HTTP("GiveKudos", giveKudos)
@@ -64,7 +61,7 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *config.Config) 
 			// Route to appropriate handler based on interaction type
 			switch callback.Type {
 			case slack.InteractionTypeBlockActions:
-				handlers.HandleBlockActions(w, &callback, giveKudosViewTemplate, config)
+				handlers.HandleBlockActions(w, &callback, templates.GiveKudosViewTemplate, config)
 			case slack.InteractionTypeViewSubmission:
 				handlers.HandleViewSubmission(w, &callback, config)
 			default:
@@ -73,7 +70,7 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *config.Config) 
 			}
 		} else {
 			// This is a slash command
-			handlers.HandleSlashCommand(w, r, giveKudosViewTemplate, config)
+			handlers.HandleSlashCommand(w, r, templates.GiveKudosViewTemplate, config)
 		}
 	} else {
 		log.Printf("Unsupported request: Method=%s, Content-Type=%s", r.Method, r.Header.Get("Content-Type"))
