@@ -14,6 +14,7 @@ import (
 
 	"github.com/slack-go/slack"
 	"github.com/vyper/my-matter/internal/config"
+	"github.com/vyper/my-matter/internal/handlers"
 	"github.com/vyper/my-matter/internal/models"
 	"github.com/vyper/my-matter/internal/services"
 )
@@ -385,9 +386,9 @@ func TestGiveKudos_ModalSubmission_InvalidJSON(t *testing.T) {
 
 	handleKudos(rr, req, config)
 
-	if status := rr.Code; status != http.StatusUnauthorized {
+	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("handler returned wrong status code for invalid JSON: got %v want %v",
-			status, http.StatusUnauthorized)
+			status, http.StatusBadRequest)
 	}
 
 	if !strings.Contains(rr.Body.String(), "Invalid Slack Interaction Callback") {
@@ -410,21 +411,21 @@ func TestGiveKudos_DifferentHTTPMethods(t *testing.T) {
 			method:         http.MethodGet,
 			contentType:    "",
 			body:           "",
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusMethodNotAllowed,
 		},
 		{
 			name:           "PUT request",
 			method:         http.MethodPut,
 			contentType:    "application/json",
 			body:           `{"test": "data"}`,
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusMethodNotAllowed,
 		},
 		{
 			name:           "POST with JSON content type",
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			body:           `{"test": "data"}`,
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusMethodNotAllowed,
 		},
 	}
 
@@ -460,10 +461,10 @@ func TestGiveKudos_ParseFormError(t *testing.T) {
 
 	handleKudos(rr, req, config)
 
-	// Should complete despite parse error
-	if status := rr.Code; status != http.StatusOK {
+	// Should return 400 for parse error
+	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+			status, http.StatusBadRequest)
 	}
 }
 
@@ -655,14 +656,14 @@ func TestGiveKudos_NonPOST_BodyReadError(t *testing.T) {
 
 	handleKudos(rr, req, config)
 
-	// Should handle error gracefully and return 200
-	if status := rr.Code; status != http.StatusOK {
+	// Should return 405 for non-POST/non-form-urlencoded
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
 		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+			status, http.StatusMethodNotAllowed)
 	}
 }
 
-// TestGiveKudos_NonPOST_WithBody tests successful body read in else block
+// TestGiveKudos_NonPOST_WithBody tests non-POST request handling
 func TestGiveKudos_NonPOST_WithBody(t *testing.T) {
 	config := createTestConfig()
 
@@ -676,10 +677,10 @@ func TestGiveKudos_NonPOST_WithBody(t *testing.T) {
 
 	handleKudos(rr, req, config)
 
-	// Should handle successfully and return 200
-	if status := rr.Code; status != http.StatusOK {
+	// Should return 405 for non-POST/non-form-urlencoded
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
 		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+			status, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -864,7 +865,7 @@ func TestHandleBlockActions_KudoTypeSelection_EmptyMessage(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handleBlockActions(rr, callback, config)
+	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
 
 	if !viewsUpdateCalled {
 		t.Error("Expected views.update to be called")
@@ -949,7 +950,7 @@ func TestHandleBlockActions_KudoTypeSelection_PreservesExistingMessage(t *testin
 	}
 
 	rr := httptest.NewRecorder()
-	handleBlockActions(rr, callback, config)
+	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
 
 	if !viewsUpdateCalled {
 		t.Error("Expected views.update to be called")
@@ -993,7 +994,7 @@ func TestHandleBlockActions_NonKudoTypeAction(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handleBlockActions(rr, callback, config)
+	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
 
 	if viewsUpdateCalled {
 		t.Error("Expected views.update NOT to be called for non-kudo_type actions")
@@ -1029,7 +1030,7 @@ func TestHandleBlockActions_EmptyBlockActions(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handleBlockActions(rr, callback, config)
+	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
 
 	if viewsUpdateCalled {
 		t.Error("Expected views.update NOT to be called for empty block actions")
@@ -1062,7 +1063,7 @@ func TestUpdateView_Success(t *testing.T) {
 		},
 	}
 
-	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1090,7 +1091,7 @@ func TestUpdateView_SlackAPIError(t *testing.T) {
 		},
 	}
 
-	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
 
 	if err == nil {
 		t.Error("Expected error, got nil")
@@ -1109,7 +1110,7 @@ func TestUpdateView_HTTPError(t *testing.T) {
 		},
 	}
 
-	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
 
 	if err == nil {
 		t.Error("Expected error, got nil")
@@ -1148,7 +1149,7 @@ func TestUpdateView_EmptyMessage(t *testing.T) {
 		},
 	}
 
-	err := updateView("V12345", "hash123", "entrega-excepcional", "", config) // Empty message
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "", giveKudosViewTemplate, config) // Empty message
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1590,7 +1591,7 @@ func TestUpdateView_AddsDescriptionBlock(t *testing.T) {
 		},
 	}
 
-	err := updateView("V12345", "hash123", "entrega-excepcional", "Test message", config)
+	err := services.UpdateModal("V12345", "hash123", "entrega-excepcional", "Test message", giveKudosViewTemplate, config)
 	if err != nil {
 		t.Errorf("updateView returned error: %v", err)
 	}
@@ -1658,7 +1659,7 @@ func TestUpdateView_DescriptionContent(t *testing.T) {
 				},
 			}
 
-			err := updateView("V12345", "hash123", tc.kudoType, "", config)
+			err := services.UpdateModal("V12345", "hash123", tc.kudoType, "", giveKudosViewTemplate, config)
 			if err != nil {
 				t.Errorf("updateView returned error: %v", err)
 			}
@@ -1713,7 +1714,7 @@ func TestUpdateView_UnknownKudoType(t *testing.T) {
 	}
 
 	// Use an unknown kudo type
-	err := updateView("V12345", "hash123", "unknown-type", "", config)
+	err := services.UpdateModal("V12345", "hash123", "unknown-type", "", giveKudosViewTemplate, config)
 	if err != nil {
 		t.Errorf("updateView returned error: %v", err)
 	}
@@ -1776,7 +1777,7 @@ func TestHandleBlockActions_UpdatesDescriptionBlock(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handleBlockActions(rr, callback, config)
+	handlers.HandleBlockActions(rr, callback, giveKudosViewTemplate, config)
 
 	if !descriptionBlockUpdated {
 		t.Error("Expected description block to be updated when kudo type is selected")
