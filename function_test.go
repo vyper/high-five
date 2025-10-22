@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/slack-go/slack"
+	"github.com/vyper/my-matter/internal/config"
+	"github.com/vyper/my-matter/internal/models"
 )
 
 // MockHTTPClient implements HTTPClient for testing
@@ -32,8 +34,8 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 // createTestConfig creates a test configuration with mocks
-func createTestConfig() *Config {
-	return &Config{
+func createTestConfig() *config.Config {
+	return &config.Config{
 		SlackBotToken:  "xoxb-test-token",
 		SlackChannelID: "C12345678",
 		SigningSecret:  "test-signing-secret",
@@ -52,28 +54,28 @@ func TestLoadConfig_Success(t *testing.T) {
 		return vars[key]
 	}
 
-	config, err := LoadConfig(getenv)
+	cfg, err := config.LoadConfig(getenv)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if config.SlackBotToken != "xoxb-test-token" {
-		t.Errorf("Expected SlackBotToken xoxb-test-token, got %s", config.SlackBotToken)
+	if cfg.SlackBotToken != "xoxb-test-token" {
+		t.Errorf("Expected SlackBotToken xoxb-test-token, got %s", cfg.SlackBotToken)
 	}
 
-	if config.SlackChannelID != "C12345678" {
-		t.Errorf("Expected SlackChannelID C12345678, got %s", config.SlackChannelID)
+	if cfg.SlackChannelID != "C12345678" {
+		t.Errorf("Expected SlackChannelID C12345678, got %s", cfg.SlackChannelID)
 	}
 
-	if config.SigningSecret != "test-signing-secret" {
-		t.Errorf("Expected SigningSecret test-signing-secret, got %s", config.SigningSecret)
+	if cfg.SigningSecret != "test-signing-secret" {
+		t.Errorf("Expected SigningSecret test-signing-secret, got %s", cfg.SigningSecret)
 	}
 
-	if config.SlackAPI == nil {
+	if cfg.SlackAPI == nil {
 		t.Error("Expected SlackAPI to be initialized")
 	}
 
-	if config.HTTPClient == nil {
+	if cfg.HTTPClient == nil {
 		t.Error("Expected HTTPClient to be initialized")
 	}
 }
@@ -121,13 +123,13 @@ func TestLoadConfig_MissingVariables(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config, err := LoadConfig(tt.getenv)
+			cfg, err := config.LoadConfig(tt.getenv)
 
 			if err == nil {
 				t.Fatal("Expected error, got nil")
 			}
 
-			if config != nil {
+			if cfg != nil {
 				t.Error("Expected nil config on error")
 			}
 
@@ -1228,9 +1230,9 @@ func TestKudoSuggestedMessages_AllTypesPresent(t *testing.T) {
 	expectedTypes := []string{"entrega-excepcional", "espirito-de-equipe", "ideia-brilhante", "acima-e-alem", "mestre-em-ensinar", "resolvedor-de-problemas", "atitude-positiva", "crescimento-continuo", "conquista-do-time", "resiliencia"}
 
 	for _, kudoType := range expectedTypes {
-		message, exists := kudoSuggestedMessages[kudoType]
+		message, exists := models.KudoSuggestedMessages[kudoType]
 		if !exists {
-			t.Errorf("Expected kudoSuggestedMessages to have entry for %s", kudoType)
+			t.Errorf("Expected models.KudoSuggestedMessages to have entry for %s", kudoType)
 		}
 		if message == "" {
 			t.Errorf("Expected non-empty message for %s", kudoType)
@@ -1484,8 +1486,8 @@ func TestGiveKudos_PostsBlockKitMessage(t *testing.T) {
 // TestKudoDescriptions_AllTypesPresent tests that all kudo types have descriptions
 func TestKudoDescriptions_AllTypesPresent(t *testing.T) {
 	// All kudo types that have suggested messages should also have descriptions
-	for kudoType := range kudoSuggestedMessages {
-		if _, exists := kudoDescriptions[kudoType]; !exists {
+	for kudoType := range models.KudoSuggestedMessages {
+		if _, exists := models.KudoDescriptions[kudoType]; !exists {
 			t.Errorf("Kudo type %q has a suggested message but no description", kudoType)
 		}
 	}
@@ -1505,7 +1507,7 @@ func TestKudoDescriptions_AllTypesPresent(t *testing.T) {
 	}
 
 	for _, kudoType := range expectedTypes {
-		description, exists := kudoDescriptions[kudoType]
+		description, exists := models.KudoDescriptions[kudoType]
 		if !exists {
 			t.Errorf("Expected description for kudo type %q, but not found", kudoType)
 		}
@@ -1517,7 +1519,7 @@ func TestKudoDescriptions_AllTypesPresent(t *testing.T) {
 
 // TestKudoDescriptions_NotEmpty tests that descriptions are not empty strings
 func TestKudoDescriptions_NotEmpty(t *testing.T) {
-	for kudoType, description := range kudoDescriptions {
+	for kudoType, description := range models.KudoDescriptions {
 		if description == "" {
 			t.Errorf("Description for kudo type %q is empty", kudoType)
 		}
