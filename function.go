@@ -10,96 +10,26 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/slack-go/slack"
+	"github.com/vyper/my-matter/internal/config"
+	"github.com/vyper/my-matter/internal/models"
 )
 
-// HTTPClient interface for mocking HTTP calls
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-// SlackClient interface for mocking Slack API calls
-type SlackClient interface {
-	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
-}
-
-// Config holds the configuration for the function
-type Config struct {
-	SlackBotToken  string
-	SlackChannelID string
-	SigningSecret  string
-	SlackAPI       SlackClient
-	HTTPClient     HTTPClient
-}
-
-var globalConfig *Config
+var globalConfig *config.Config
 
 //go:embed screens/give-kudos.json
 var giveKudosViewTemplate string
 
-var kudoSuggestedMessages = map[string]string{
-	"entrega-excepcional":     "Sua dedicação e capricho na entrega fizeram toda a diferença!",
-	"espirito-de-equipe":      "Obrigado por estar sempre a disposição para ajudar o time!",
-	"ideia-brilhante":         "Sua ideia trouxe uma perspectiva nova e valiosa para o problema!",
-	"acima-e-alem":            "Você foi além das expectativas e isso não passou despercebido!",
-	"mestre-em-ensinar":       "Obrigado por compartilhar seu conhecimento e ajudar o time a crescer!",
-	"resolvedor-de-problemas": "Sua habilidade de resolver problemas salvou o dia!",
-	"atitude-positiva":        "Sua energia positiva contagia e motiva todo o time!",
-	"crescimento-continuo":    "Inspirador ver sua dedicação em sempre aprender e evoluir!",
-	"conquista-do-time":       "Parabéns pela conquista! Sucesso de todos nós!",
-	"resiliencia":             "Sua persistência diante dos desafios é admirável!",
-}
-
-var kudoDescriptions = map[string]string{
-	"entrega-excepcional":     "Reconhecer entregas de alta qualidade, no prazo ou superando expectativas",
-	"espirito-de-equipe":      "Colaboração, ajudar colegas, trabalho em conjunto",
-	"ideia-brilhante":         "Inovação, criatividade, soluções inteligentes",
-	"acima-e-alem":            "Ir além do esperado, esforço extra",
-	"mestre-em-ensinar":       "Compartilhar conhecimento, mentorar, ensinar",
-	"resolvedor-de-problemas": "Resolver problemas complexos, troubleshooting",
-	"atitude-positiva":        "Manter o moral alto, positividade, energia boa",
-	"crescimento-continuo":    "Aprendizado, desenvolvimento pessoal, adaptabilidade",
-	"conquista-do-time":       "Vitórias coletivas, marcos alcançados",
-	"resiliencia":             "Superar desafios, persistência, lidar com adversidades",
-}
-
 func init() {
 	functions.HTTP("GiveKudos", giveKudos)
 
-	config, err := LoadConfig(os.Getenv)
+	cfg, err := config.LoadConfig(os.Getenv)
 	if err != nil {
 		log.Fatal(err)
 	}
-	globalConfig = config
-}
-
-// LoadConfig loads configuration from environment variables
-func LoadConfig(getenv func(string) string) (*Config, error) {
-	slackBotToken := getenv("SLACK_BOT_TOKEN")
-	if slackBotToken == "" {
-		return nil, fmt.Errorf("SLACK_BOT_TOKEN environment variable is required")
-	}
-
-	slackChannelID := getenv("SLACK_CHANNEL_ID")
-	if slackChannelID == "" {
-		return nil, fmt.Errorf("SLACK_CHANNEL_ID environment variable is required")
-	}
-
-	signingSecret := getenv("SLACK_SIGNING_SECRET")
-	if signingSecret == "" {
-		return nil, fmt.Errorf("SLACK_SIGNING_SECRET environment variable is required")
-	}
-
-	return &Config{
-		SlackBotToken:  slackBotToken,
-		SlackChannelID: slackChannelID,
-		SigningSecret:  signingSecret,
-		SlackAPI:       slack.New(slackBotToken, slack.OptionDebug(true)),
-		HTTPClient:     &http.Client{Timeout: time.Second * 10},
-	}, nil
+	globalConfig = cfg
 }
 
 // formatUsersForSlack formats a list of user IDs as Slack mentions
@@ -193,7 +123,7 @@ func giveKudos(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleKudos processes the kudos request with injectable config
-func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
+func handleKudos(w http.ResponseWriter, r *http.Request, config *config.Config) {
 	fmt.Printf("Method: %s\n", r.Method)
 	fmt.Printf("Content-Type: %s\n", r.Header.Get("Content-Type"))
 
@@ -231,7 +161,7 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 
 				// If the user didn't interact with the message field, use the suggested message
 				if kudoMessage == "" {
-					if suggestedMsg, ok := kudoSuggestedMessages[kudoTypeValue]; ok {
+					if suggestedMsg, ok := models.KudoSuggestedMessages[kudoTypeValue]; ok {
 						kudoMessage = suggestedMsg
 					}
 				}
@@ -320,7 +250,7 @@ func handleKudos(w http.ResponseWriter, r *http.Request, config *Config) {
 }
 
 // handleBlockActions processes block_actions interactions for dynamic modal updates
-func handleBlockActions(w http.ResponseWriter, callback *slack.InteractionCallback, config *Config) {
+func handleBlockActions(w http.ResponseWriter, callback *slack.InteractionCallback, config *config.Config) {
 	// Check if this is a kudo_type selection
 	for _, action := range callback.ActionCallback.BlockActions {
 		if action.ActionID == "kudo_type" && action.SelectedOption.Value != "" {
@@ -337,7 +267,7 @@ func handleBlockActions(w http.ResponseWriter, callback *slack.InteractionCallba
 			// Only suggest message if field is empty (preserve user input)
 			suggestedMessage := ""
 			if currentMessage == "" {
-				if msg, ok := kudoSuggestedMessages[action.SelectedOption.Value]; ok {
+				if msg, ok := models.KudoSuggestedMessages[action.SelectedOption.Value]; ok {
 					suggestedMessage = msg
 				}
 			} else {
@@ -363,7 +293,7 @@ func handleBlockActions(w http.ResponseWriter, callback *slack.InteractionCallba
 }
 
 // updateView calls Slack's views.update API to dynamically update the modal
-func updateView(viewID, hash, selectedKudoType, messageValue string, config *Config) error {
+func updateView(viewID, hash, selectedKudoType, messageValue string, config *config.Config) error {
 	// Parse the view template
 	var viewData map[string]interface{}
 	if err := json.Unmarshal([]byte(giveKudosViewTemplate), &viewData); err != nil {
@@ -406,7 +336,7 @@ func updateView(viewID, hash, selectedKudoType, messageValue string, config *Con
 		}
 	}
 
-	description := kudoDescriptions[selectedKudoType]
+	description := models.KudoDescriptions[selectedKudoType]
 	if description == "" {
 		description = "Tipo de elogio selecionado"
 	}
