@@ -15,6 +15,7 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/vyper/my-matter/internal/config"
 	"github.com/vyper/my-matter/internal/models"
+	"github.com/vyper/my-matter/internal/services"
 )
 
 // MockHTTPClient implements HTTPClient for testing
@@ -288,10 +289,10 @@ func TestGiveKudos_InitialCommand_HTTPErrors(t *testing.T) {
 
 			handleKudos(rr, req, config)
 
-			// Function should handle errors gracefully and return 200
-			if status := rr.Code; status != http.StatusOK {
+			// Function should return 500 when modal opening fails
+			if status := rr.Code; status != http.StatusInternalServerError {
 				t.Errorf("handler returned wrong status code: got %v want %v",
-					status, http.StatusOK)
+					status, http.StatusInternalServerError)
 			}
 		})
 	}
@@ -685,7 +686,7 @@ func TestGiveKudos_NonPOST_WithBody(t *testing.T) {
 // TestFormatUsersForSlack_MultipleUsers tests formatting multiple users
 func TestFormatUsersForSlack_MultipleUsers(t *testing.T) {
 	userIDs := []string{"U87654321", "U11111111", "U22222222"}
-	result := formatUsersForSlack(userIDs)
+	result := services.FormatUsersForSlack(userIDs)
 
 	expected := "<@U87654321>, <@U11111111>, <@U22222222>"
 	if result != expected {
@@ -712,7 +713,7 @@ func TestFormatUsersForSlack_MultipleUsers(t *testing.T) {
 // TestFormatUsersForSlack_SingleUser tests formatting a single user
 func TestFormatUsersForSlack_SingleUser(t *testing.T) {
 	userIDs := []string{"U87654321"}
-	result := formatUsersForSlack(userIDs)
+	result := services.FormatUsersForSlack(userIDs)
 
 	expected := "<@U87654321>"
 	if result != expected {
@@ -723,7 +724,7 @@ func TestFormatUsersForSlack_SingleUser(t *testing.T) {
 // TestFormatUsersForSlack_EmptyArray tests formatting an empty array
 func TestFormatUsersForSlack_EmptyArray(t *testing.T) {
 	userIDs := []string{}
-	result := formatUsersForSlack(userIDs)
+	result := services.FormatUsersForSlack(userIDs)
 
 	if result != "" {
 		t.Errorf("Expected empty string for empty array, got %q", result)
@@ -733,7 +734,7 @@ func TestFormatUsersForSlack_EmptyArray(t *testing.T) {
 // TestFormatUsersForSlack_NilArray tests formatting a nil array
 func TestFormatUsersForSlack_NilArray(t *testing.T) {
 	var userIDs []string
-	result := formatUsersForSlack(userIDs)
+	result := services.FormatUsersForSlack(userIDs)
 
 	if result != "" {
 		t.Errorf("Expected empty string for nil array, got %q", result)
@@ -1243,7 +1244,7 @@ func TestKudoSuggestedMessages_AllTypesPresent(t *testing.T) {
 // TestFormatAsSlackQuote_SingleLine tests formatting a single line message
 func TestFormatAsSlackQuote_SingleLine(t *testing.T) {
 	message := "This is a single line message"
-	result := formatAsSlackQuote(message)
+	result := services.FormatAsSlackQuote(message)
 
 	expected := "> This is a single line message"
 	if result != expected {
@@ -1254,7 +1255,7 @@ func TestFormatAsSlackQuote_SingleLine(t *testing.T) {
 // TestFormatAsSlackQuote_MultipleLines tests formatting a multi-line message
 func TestFormatAsSlackQuote_MultipleLines(t *testing.T) {
 	message := "Inspirador ver sua dedicação em sempre aprender e evoluir!\nPodendo complementar! :D"
-	result := formatAsSlackQuote(message)
+	result := services.FormatAsSlackQuote(message)
 
 	expected := "> Inspirador ver sua dedicação em sempre aprender e evoluir!\n> Podendo complementar! :D"
 	if result != expected {
@@ -1276,7 +1277,7 @@ func TestFormatAsSlackQuote_MultipleLines(t *testing.T) {
 // TestFormatAsSlackQuote_ThreeLines tests formatting a three-line message
 func TestFormatAsSlackQuote_ThreeLines(t *testing.T) {
 	message := "Line one\nLine two\nLine three"
-	result := formatAsSlackQuote(message)
+	result := services.FormatAsSlackQuote(message)
 
 	expected := "> Line one\n> Line two\n> Line three"
 	if result != expected {
@@ -1287,7 +1288,7 @@ func TestFormatAsSlackQuote_ThreeLines(t *testing.T) {
 // TestFormatAsSlackQuote_EmptyString tests formatting an empty string
 func TestFormatAsSlackQuote_EmptyString(t *testing.T) {
 	message := ""
-	result := formatAsSlackQuote(message)
+	result := services.FormatAsSlackQuote(message)
 
 	if result != "" {
 		t.Errorf("Expected empty string, got %q", result)
@@ -1297,7 +1298,7 @@ func TestFormatAsSlackQuote_EmptyString(t *testing.T) {
 // TestFormatAsSlackQuote_EmptyLines tests formatting a message with empty lines
 func TestFormatAsSlackQuote_EmptyLines(t *testing.T) {
 	message := "Line one\n\nLine three"
-	result := formatAsSlackQuote(message)
+	result := services.FormatAsSlackQuote(message)
 
 	expected := "> Line one\n> \n> Line three"
 	if result != expected {
@@ -1321,7 +1322,7 @@ func TestFormatKudosAsBlocks(t *testing.T) {
 	kudoTypeText := "Resolvedor(a) de Problemas"
 	message := "Sua habilidade de resolver problemas salvou o dia!\n\nMúltiplas linhas aqui."
 
-	blocks := formatKudosAsBlocks(senderID, recipientIDs, kudoTypeEmoji, kudoTypeText, message)
+	blocks := services.FormatKudosAsBlocks(senderID, recipientIDs, kudoTypeEmoji, kudoTypeText, message)
 
 	// Verify number of blocks (header, section, divider, section, section, divider, context)
 	expectedBlockCount := 7
@@ -1422,7 +1423,7 @@ func TestFormatKudosAsBlocks_EmptyMessage(t *testing.T) {
 	kudoTypeText := "Entrega Excepcional"
 	message := ""
 
-	blocks := formatKudosAsBlocks(senderID, recipientIDs, kudoTypeEmoji, kudoTypeText, message)
+	blocks := services.FormatKudosAsBlocks(senderID, recipientIDs, kudoTypeEmoji, kudoTypeText, message)
 
 	// Should still create all blocks even with empty message
 	if len(blocks) != 7 {
