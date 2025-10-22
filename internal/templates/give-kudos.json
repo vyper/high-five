@@ -1,0 +1,172 @@
+{
+	"trigger_id": "%s",
+	"view": {
+		"type": "modal",
+		"submit": {
+			"type": "plain_text",
+			"text": "Elogiar!",
+			"emoji": true
+		},
+		"close": {
+			"type": "plain_text",
+			"text": "Cancelar",
+			"emoji": true
+		},
+		"title": {
+			"type": "plain_text",
+			"text": "Dê elogio",
+			"emoji": true
+		},
+		"blocks": [
+			{
+				"type": "input",
+				"block_id": "kudo_users",
+				"label": {
+					"type": "plain_text",
+					"text": "Para",
+					"emoji": true
+				},
+				"element": {
+					"type": "multi_users_select",
+					"action_id": "kudo_users",
+					"placeholder": {
+						"type": "plain_text",
+						"text": "Selecione os elogiados",
+						"emoji": true
+					}
+				}
+			},
+			{
+				"type": "input",
+				"block_id": "kudo_type",
+				"dispatch_action": true,
+				"label": {
+					"type": "plain_text",
+					"text": "Tipo",
+					"emoji": true
+				},
+				"element": {
+					"type": "static_select",
+					"action_id": "kudo_type",
+					"placeholder": {
+						"type": "plain_text",
+						"text": "Selecione o tipo de elogio",
+						"emoji": true
+					},
+					"options": [
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":dart: Entrega Excepcional",
+								"emoji": true
+							},
+							"value": "entrega-excepcional"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":handshake: Espírito de Equipe",
+								"emoji": true
+							},
+							"value": "espirito-de-equipe"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":bulb: Ideia Brilhante",
+								"emoji": true
+							},
+							"value": "ideia-brilhante"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":rocket: Acima e Além",
+								"emoji": true
+							},
+							"value": "acima-e-alem"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":mortar_board: Mestre(a) em Ensinar",
+								"emoji": true
+							},
+							"value": "mestre-em-ensinar"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":zap: Resolvedor(a) de Problemas",
+								"emoji": true
+							},
+							"value": "resolvedor-de-problemas"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":star2: Atitude Positiva",
+								"emoji": true
+							},
+							"value": "atitude-positiva"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":seedling: Crescimento Contínuo",
+								"emoji": true
+							},
+							"value": "crescimento-continuo"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":tada: Conquista do Time",
+								"emoji": true
+							},
+							"value": "conquista-do-time"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": ":muscle: Resiliência",
+								"emoji": true
+							},
+							"value": "resiliencia"
+						}
+					]
+				}
+			},
+			{
+				"type": "context",
+				"block_id": "kudo_description",
+				"elements": [
+					{
+						"type": "mrkdwn",
+						"text": "💡 _Selecione um tipo para ver sua descrição_"
+					}
+				]
+			},
+			{
+				"type": "input",
+				"block_id": "kudo_message",
+				"label": {
+					"type": "plain_text",
+					"text": "Mensagem",
+					"emoji": true
+				},
+				"element": {
+					"type": "plain_text_input",
+					"action_id": "kudo_message",
+					"multiline": true,
+					"placeholder": {
+						"type": "plain_text",
+						"text": "Deixe uma mensagem junto",
+						"emoji": true
+					}
+				},
+				"optional": true
+			}
+		]
+	}
+}
