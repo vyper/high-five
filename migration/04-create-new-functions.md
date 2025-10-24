@@ -35,7 +35,41 @@ Criar as duas novas Cloud Functions independentes (`slash-command` e `interactiv
 
 ## Passos
 
-### 1. Criar `cmd/slash-command/main.go`
+### 1. Criar arquivos de registro no root (IMPORTANTE!)
+
+Para que o Cloud Functions Gen2 encontre os entry points, precisamos criar arquivos de registro no root do projeto que importam os packages das functions:
+
+**Criar `slash_command.go`:**
+```bash
+touch slash_command.go
+```
+
+**Conteúdo:**
+```go
+package function
+
+import (
+	_ "github.com/vyper/my-matter/functions/slashcommand"
+)
+```
+
+**Criar `interactivity.go`:**
+```bash
+touch interactivity.go
+```
+
+**Conteúdo:**
+```go
+package function
+
+import (
+	_ "github.com/vyper/my-matter/functions/interactivity"
+)
+```
+
+⚠️ **IMPORTANTE:** Estes arquivos devem usar `package function` (mesmo package do `function.go` existente) para evitar conflitos de package.
+
+### 2. Criar `cmd/slash-command/main.go`
 
 **Criar arquivo:**
 ```bash
@@ -72,7 +106,7 @@ func main() {
 }
 ```
 
-### 2. Criar `functions/slashcommand/function.go`
+### 3. Criar `functions/slashcommand/function.go`
 
 **Criar arquivo:**
 ```bash
@@ -132,7 +166,7 @@ func handleSlashCommand(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### 3. Criar `cmd/interactivity/main.go`
+### 4. Criar `cmd/interactivity/main.go`
 
 **Criar arquivo:**
 ```bash
@@ -169,7 +203,7 @@ func main() {
 }
 ```
 
-### 4. Criar `functions/interactivity/function.go`
+### 5. Criar `functions/interactivity/function.go`
 
 **Criar arquivo:**
 ```bash
@@ -254,14 +288,14 @@ func handleInteractivity(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### 5. Verificar e corrigir imports
+### 6. Verificar e corrigir imports
 ```bash
 go mod tidy
 ```
 
-### 6. Commit
+### 7. Commit
 ```bash
-git add cmd/ functions/
+git add cmd/ functions/ slash_command.go interactivity.go
 git commit -m "feat: create separate cloud functions for slash command and interactivity"
 ```
 
@@ -387,6 +421,34 @@ Neste ponto você tem **3 functions rodando em paralelo**:
 3. ✅ `matter-interactivity` (nova) - deployada, mas **não usada** ainda
 
 **Nenhum impacto no usuário** - função original continua funcionando!
+
+## Troubleshooting
+
+### Erro: "Function failed to start: no matching function found with name"
+
+**Sintoma:**
+```
+Function failed to start: no matching function found with name: "SlashCommand"
+```
+
+**Causa:**
+O Cloud Functions Gen2 não consegue encontrar o entry point porque a function está registrada em um package separado (`functions/slashcommand`) e não há um import no root do projeto.
+
+**Solução:**
+Criar os arquivos de registro no root (`slash_command.go` e `interactivity.go`) que importam os packages das functions. Isso foi adicionado no passo 1 deste guia.
+
+### Erro: "multiple packages in user code directory"
+
+**Sintoma:**
+```
+multiple packages in user code directory: function != highfive
+```
+
+**Causa:**
+Você criou um arquivo no root com um nome de package diferente do `function.go` existente.
+
+**Solução:**
+Garantir que todos os arquivos `.go` no root do projeto usem `package function` (o mesmo package do `function.go` original).
 
 ## Como fazer rollback
 
