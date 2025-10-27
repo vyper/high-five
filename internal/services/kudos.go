@@ -9,8 +9,28 @@ import (
 	"github.com/vyper/my-matter/internal/config"
 )
 
+// InviteUsersToChannel invites users to the channel if they're not already members
+func InviteUsersToChannel(recipientIDs []string, cfg *config.Config) {
+	for _, userID := range recipientIDs {
+		_, err := cfg.SlackAPI.InviteUsersToConversation(cfg.SlackChannelID, userID)
+		if err != nil {
+			// Ignore "already_in_channel" errors
+			if strings.Contains(err.Error(), "already_in_channel") {
+				log.Printf("User %s is already in channel %s", userID, cfg.SlackChannelID)
+				continue
+			}
+			// Log other errors but don't fail the operation
+			log.Printf("Warning: could not invite user %s to channel %s: %v", userID, cfg.SlackChannelID, err)
+		} else {
+			log.Printf("Successfully invited user %s to channel %s", userID, cfg.SlackChannelID)
+		}
+	}
+}
+
 // PostKudos sends a kudos message to Slack channel
 func PostKudos(senderID string, recipientIDs []string, kudoTypeEmoji, kudoTypeText, message string, cfg *config.Config) error {
+	// Invite recipients to channel first
+	InviteUsersToChannel(recipientIDs, cfg)
 	blocks := FormatKudosAsBlocks(senderID, recipientIDs, kudoTypeEmoji, kudoTypeText, message)
 
 	usersString := FormatUsersForSlack(recipientIDs)

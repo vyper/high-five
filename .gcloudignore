@@ -14,3 +14,11 @@
 .gitignore
 
 node_modules
+
+# Exclude test files
+*_test.go
+# Exclude cmd directory (only used for local testing)
+cmd/
+# Exclude test artifacts
+coverage.out
+coverage.html

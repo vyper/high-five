@@ -522,7 +522,8 @@ func TestHandleViewSubmission_SuggestedMessageForAllTypes(t *testing.T) {
 
 // MockSlackClient for testing
 type MockSlackClient struct {
-	PostMessageFunc func(channelID string, options ...slack.MsgOption) (string, string, error)
+	PostMessageFunc               func(channelID string, options ...slack.MsgOption) (string, string, error)
+	InviteUsersToConversationFunc func(channelID string, users ...string) (*slack.Channel, error)
 }
 
 func (m *MockSlackClient) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
@@ -530,4 +531,11 @@ func (m *MockSlackClient) PostMessage(channelID string, options ...slack.MsgOpti
 		return m.PostMessageFunc(channelID, options...)
 	}
 	return "C123456", "1234567890.123456", nil
+}
+
+func (m *MockSlackClient) InviteUsersToConversation(channelID string, users ...string) (*slack.Channel, error) {
+	if m.InviteUsersToConversationFunc != nil {
+		return m.InviteUsersToConversationFunc(channelID, users...)
+	}
+	return &slack.Channel{GroupConversation: slack.GroupConversation{Conversation: slack.Conversation{ID: channelID}}}, nil
 }

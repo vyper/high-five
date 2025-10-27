@@ -43,3 +43,8 @@ func handleSlashCommand(w http.ResponseWriter, r *http.Request) {
 	// Handle slash command
 	handlers.HandleSlashCommand(w, r, templates.GiveKudosViewTemplate, globalConfig)
 }
+
+// HandleSlashCommand is the exported function for the Cloud Function entry point
+func HandleSlashCommand(w http.ResponseWriter, r *http.Request) {
+	handleSlashCommand(w, r)
+}

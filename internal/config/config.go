@@ -16,6 +16,7 @@ type HTTPClient interface {
 // SlackClient interface for mocking Slack API calls
 type SlackClient interface {
 	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
+	InviteUsersToConversation(channelID string, users ...string) (*slack.Channel, error)
 }
 
 // Config holds the configuration for the function
