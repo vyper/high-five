@@ -68,3 +68,8 @@ func handleInteractivity(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}
 }
+
+// HandleInteractivity is the exported function for the Cloud Function entry point
+func HandleInteractivity(w http.ResponseWriter, r *http.Request) {
+	handleInteractivity(w, r)
+}

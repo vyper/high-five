@@ -10,7 +10,8 @@ import (
 
 // MockSlackClient is a mock implementation of config.SlackClient
 type MockSlackClient struct {
-	PostMessageFunc func(channelID string, options ...slack.MsgOption) (string, string, error)
+	PostMessageFunc               func(channelID string, options ...slack.MsgOption) (string, string, error)
+	InviteUsersToConversationFunc func(channelID string, users ...string) (*slack.Channel, error)
 }
 
 func (m *MockSlackClient) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
@@ -18,6 +19,13 @@ func (m *MockSlackClient) PostMessage(channelID string, options ...slack.MsgOpti
 		return m.PostMessageFunc(channelID, options...)
 	}
 	return "C123456", "1234567890.123456", nil
+}
+
+func (m *MockSlackClient) InviteUsersToConversation(channelID string, users ...string) (*slack.Channel, error) {
+	if m.InviteUsersToConversationFunc != nil {
+		return m.InviteUsersToConversationFunc(channelID, users...)
+	}
+	return &slack.Channel{GroupConversation: slack.GroupConversation{Conversation: slack.Conversation{ID: channelID}}}, nil
 }
 
 func TestPostKudos(t *testing.T) {
@@ -253,6 +261,90 @@ func TestPostKudos_FallbackText(t *testing.T) {
 	// Verify that the options include both blocks and text
 	// We can't easily inspect the MsgOption values directly, but we can verify they were passed
 	// This is more of a smoke test to ensure the function constructs the message correctly
+}
+
+func TestInviteUsersToChannel(t *testing.T) {
+	tests := []struct {
+		name         string
+		recipientIDs []string
+		mockFunc     func(channelID string, users ...string) (*slack.Channel, error)
+		expectCalls  int
+	}{
+		{
+			name:         "successfully invite single user",
+			recipientIDs: []string{"U123456"},
+			mockFunc: func(channelID string, users ...string) (*slack.Channel, error) {
+				if channelID != "C123456" {
+					t.Errorf("expected channel C123456, got %s", channelID)
+				}
+				if len(users) != 1 || users[0] != "U123456" {
+					t.Errorf("expected user U123456, got %v", users)
+				}
+				return &slack.Channel{GroupConversation: slack.GroupConversation{Conversation: slack.Conversation{ID: channelID}}}, nil
+			},
+			expectCalls: 1,
+		},
+		{
+			name:         "successfully invite multiple users",
+			recipientIDs: []string{"U111111", "U222222", "U333333"},
+			mockFunc: func(channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{GroupConversation: slack.GroupConversation{Conversation: slack.Conversation{ID: channelID}}}, nil
+			},
+			expectCalls: 3,
+		},
+		{
+			name:         "ignore already_in_channel error",
+			recipientIDs: []string{"U123456"},
+			mockFunc: func(channelID string, users ...string) (*slack.Channel, error) {
+				return nil, errors.New("already_in_channel")
+			},
+			expectCalls: 1,
+		},
+		{
+			name:         "log other errors but continue",
+			recipientIDs: []string{"U123456", "U789012"},
+			mockFunc: func(channelID string, users ...string) (*slack.Channel, error) {
+				if users[0] == "U123456" {
+					return nil, errors.New("some_other_error")
+				}
+				return &slack.Channel{GroupConversation: slack.GroupConversation{Conversation: slack.Conversation{ID: channelID}}}, nil
+			},
+			expectCalls: 2,
+		},
+		{
+			name:         "empty recipient list",
+			recipientIDs: []string{},
+			mockFunc: func(channelID string, users ...string) (*slack.Channel, error) {
+				t.Error("should not be called with empty recipient list")
+				return nil, nil
+			},
+			expectCalls: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			callCount := 0
+			mockSlack := &MockSlackClient{
+				InviteUsersToConversationFunc: func(channelID string, users ...string) (*slack.Channel, error) {
+					callCount++
+					return tt.mockFunc(channelID, users...)
+				},
+			}
+
+			cfg := &config.Config{
+				SlackChannelID: "C123456",
+				SlackAPI:       mockSlack,
+			}
+
+			// This function doesn't return errors, it only logs them
+			InviteUsersToChannel(tt.recipientIDs, cfg)
+
+			if callCount != tt.expectCalls {
+				t.Errorf("expected %d calls to InviteUsersToConversation, got %d", tt.expectCalls, callCount)
+			}
+		})
+	}
 }
 
 // Helper function to check if a string contains a substring

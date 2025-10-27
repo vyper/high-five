@@ -86,12 +86,13 @@ Deploy each function separately to Google Cloud:
 
 ```bash
 # Deploy slash command function
-gcloud beta functions deploy matter-give-kudos-slash \
+gcloud functions deploy matter-slash-command \
   --project 'parafuzo-qa-infra' \
   --gen2 \
   --entry-point SlashCommand \
   --region us-east1 \
   --runtime go125 \
+  --verbosity error \
   --source . \
   --trigger-http \
   --allow-unauthenticated \
@@ -99,12 +100,13 @@ gcloud beta functions deploy matter-give-kudos-slash \
   --set-env-vars "SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN,SLACK_CHANNEL_ID=$SLACK_CHANNEL_ID,SLACK_SIGNING_SECRET=$SLACK_SIGNING_SECRET"
 
 # Deploy interactivity function
-gcloud beta functions deploy matter-give-kudos-interactivity \
+gcloud functions deploy matter-interactivity \
   --project 'parafuzo-qa-infra' \
   --gen2 \
   --entry-point Interactivity \
   --region us-east1 \
   --runtime go125 \
+  --verbosity error \
   --source . \
   --trigger-http \
   --allow-unauthenticated \
@@ -117,6 +119,12 @@ gcloud beta functions deploy matter-give-kudos-interactivity \
 ### Two-Function Design
 
 The application uses **separate Cloud Functions** for different responsibilities:
+
+**Entry Point Files (Root Directory):**
+- `slash_command.go`: Exports `SlashCommand` function for Cloud Functions (package `function`)
+- `interactivity.go`: Exports `Interactivity` function for Cloud Functions (package `function`)
+
+These files act as adapters between Google Cloud Functions and the internal implementation.
 
 1. **SlashCommand Function** (`functions/slashcommand/`)
    - Entry point: `SlashCommand`
