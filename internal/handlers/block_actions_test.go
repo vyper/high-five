@@ -468,6 +468,221 @@ func TestHandleBlockActions_SuggestsMessageWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestHandleBlockActions_CustomKudoType(t *testing.T) {
+	validTemplate := `{
+		"view": {
+			"blocks": [
+				{"block_id": "kudo_type"},
+				{"block_id": "kudo_message", "element": {}}
+			]
+		}
+	}`
+
+	t.Run("custom type does not suggest message", func(t *testing.T) {
+		callback := &slack.InteractionCallback{
+			Type: slack.InteractionTypeBlockActions,
+			ActionCallback: slack.ActionCallbacks{
+				BlockActions: []*slack.BlockAction{
+					{
+						ActionID: "kudo_type",
+						SelectedOption: slack.OptionBlockObject{
+							Value: "custom",
+						},
+					},
+				},
+			},
+			View: slack.View{
+				ID:   "V123456",
+				Hash: "hash123",
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_message": {
+							"kudo_message": {Value: ""},
+						},
+					},
+				},
+			},
+		}
+
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body := `{"ok":true}`
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(strings.NewReader(body)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		w := httptest.NewRecorder()
+		HandleBlockActions(w, callback, validTemplate, cfg)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+		}
+	})
+
+	t.Run("custom type preserves existing message", func(t *testing.T) {
+		existingMessage := "User typed this message already"
+
+		callback := &slack.InteractionCallback{
+			Type: slack.InteractionTypeBlockActions,
+			ActionCallback: slack.ActionCallbacks{
+				BlockActions: []*slack.BlockAction{
+					{
+						ActionID: "kudo_type",
+						SelectedOption: slack.OptionBlockObject{
+							Value: "custom",
+						},
+					},
+				},
+			},
+			View: slack.View{
+				ID:   "V123456",
+				Hash: "hash123",
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_message": {
+							"kudo_message": {Value: existingMessage},
+						},
+					},
+				},
+			},
+		}
+
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body := `{"ok":true}`
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(strings.NewReader(body)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		w := httptest.NewRecorder()
+		HandleBlockActions(w, callback, validTemplate, cfg)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+		}
+	})
+
+	t.Run("switching from custom to normal type suggests message", func(t *testing.T) {
+		callback := &slack.InteractionCallback{
+			Type: slack.InteractionTypeBlockActions,
+			ActionCallback: slack.ActionCallbacks{
+				BlockActions: []*slack.BlockAction{
+					{
+						ActionID: "kudo_type",
+						SelectedOption: slack.OptionBlockObject{
+							Value: "resolvedor-de-problemas",
+						},
+					},
+				},
+			},
+			View: slack.View{
+				ID:   "V123456",
+				Hash: "hash123",
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_message": {
+							"kudo_message": {Value: ""},
+						},
+					},
+				},
+			},
+		}
+
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body := `{"ok":true}`
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(strings.NewReader(body)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		w := httptest.NewRecorder()
+		HandleBlockActions(w, callback, validTemplate, cfg)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+		}
+	})
+
+	t.Run("switching from normal to custom preserves message", func(t *testing.T) {
+		existingMessage := "Already typed message"
+
+		callback := &slack.InteractionCallback{
+			Type: slack.InteractionTypeBlockActions,
+			ActionCallback: slack.ActionCallbacks{
+				BlockActions: []*slack.BlockAction{
+					{
+						ActionID: "kudo_type",
+						SelectedOption: slack.OptionBlockObject{
+							Value: "custom",
+						},
+					},
+				},
+			},
+			View: slack.View{
+				ID:   "V123456",
+				Hash: "hash123",
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_message": {
+							"kudo_message": {Value: existingMessage},
+						},
+					},
+				},
+			},
+		}
+
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body := `{"ok":true}`
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(strings.NewReader(body)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		w := httptest.NewRecorder()
+		HandleBlockActions(w, callback, validTemplate, cfg)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+		}
+	})
+}
+
 // MockHTTPClient is defined in another test file, but we need it here
 type MockHTTPClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)

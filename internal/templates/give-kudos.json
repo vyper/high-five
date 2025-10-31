@@ -133,6 +133,14 @@
 								"emoji": true
 							},
 							"value": "resiliencia"
+						},
+						{
+							"text": {
+								"type": "plain_text",
+								"text": "✏️ Outro...",
+								"emoji": true
+							},
+							"value": "custom"
 						}
 					]
 				}

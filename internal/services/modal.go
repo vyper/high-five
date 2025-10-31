@@ -91,20 +91,63 @@ func UpdateModal(viewID, hash, selectedKudoType, messageValue, viewTemplate stri
 		}
 	}
 
-	description := models.KudoDescriptions[selectedKudoType]
-	if description == "" {
-		description = "Tipo de elogio selecionado"
-	}
+	var descriptionBlock map[string]interface{}
 
-	descriptionBlock := map[string]interface{}{
-		"type":     "context",
-		"block_id": "kudo_description",
-		"elements": []interface{}{
-			map[string]interface{}{
-				"type": "mrkdwn",
-				"text": fmt.Sprintf("💡 _%s_", description),
+	// Check if custom type selected
+	if selectedKudoType == "custom" {
+		// Transform description block into an input field for custom kudo type
+		descriptionBlock = map[string]interface{}{
+			"type":     "input",
+			"block_id": "kudo_description",
+			"label": map[string]interface{}{
+				"type":  "plain_text",
+				"text":  "Nome do tipo de elogio",
+				"emoji": true,
 			},
-		},
+			"element": map[string]interface{}{
+				"type":        "plain_text_input",
+				"action_id":   "kudo_description",
+				"placeholder": map[string]interface{}{
+					"type":  "plain_text",
+					"text":  "Ex: Super Colaborador, Líder Inspirador...",
+					"emoji": true,
+				},
+			},
+		}
+
+		// Preserve existing value if switching back to custom
+		if messageValue != "" {
+			// Check if there's an existing custom description value in the blocks
+			if descriptionBlockIndex != -1 {
+				existingBlock, ok := blocks[descriptionBlockIndex].(map[string]interface{})
+				if ok {
+					existingElement, ok := existingBlock["element"].(map[string]interface{})
+					if ok {
+						if existingValue, ok := existingElement["initial_value"].(string); ok && existingValue != "" {
+							element := descriptionBlock["element"].(map[string]interface{})
+							element["initial_value"] = existingValue
+						}
+					}
+				}
+			}
+		}
+	} else {
+		// Regular kudo type - use context block with description
+		description := models.KudoDescriptions[selectedKudoType]
+		if description == "" {
+			description = "Tipo de elogio selecionado"
+		}
+
+		descriptionBlock = map[string]interface{}{
+			"type":     "context",
+			"block_id": "kudo_description",
+			"elements": []interface{}{
+				map[string]interface{}{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("💡 _%s_", description),
+				},
+			},
+		}
 	}
 
 	if descriptionBlockIndex == -1 && kudoTypeIndex != -1 {
