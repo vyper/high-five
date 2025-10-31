@@ -520,6 +520,402 @@ func TestHandleViewSubmission_SuggestedMessageForAllTypes(t *testing.T) {
 	}
 }
 
+func TestHandleViewSubmission_CustomKudoType(t *testing.T) {
+	t.Run("successful submission with custom kudo type", func(t *testing.T) {
+		callback := &slack.InteractionCallback{
+			User: slack.User{
+				ID: "U123456",
+			},
+			View: slack.View{
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_users": {
+							"kudo_users": {
+								SelectedUsers: []string{"U789012"},
+							},
+						},
+						"kudo_type": {
+							"kudo_type": {
+								SelectedOption: slack.OptionBlockObject{
+									Value: "custom",
+									Text: &slack.TextBlockObject{
+										Text: "✏️ Outro...",
+									},
+								},
+							},
+						},
+						"kudo_description": {
+							"kudo_description": {
+								Value: "Super Colaborador",
+							},
+						},
+						"kudo_message": {
+							"kudo_message": {
+								Value: "Você sempre ajuda o time!",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		called := false
+		mockSlack := &MockSlackClient{
+			PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+				called = true
+				return "C123456", "1234567890.123456", nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackChannelID: "C123456",
+			SlackAPI:       mockSlack,
+		}
+
+		w := httptest.NewRecorder()
+		HandleViewSubmission(w, callback, cfg)
+
+		if !called {
+			t.Error("expected PostKudos to be called")
+		}
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+		}
+	})
+
+	t.Run("custom type with empty description returns error", func(t *testing.T) {
+		callback := &slack.InteractionCallback{
+			User: slack.User{
+				ID: "U123456",
+			},
+			View: slack.View{
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_users": {
+							"kudo_users": {
+								SelectedUsers: []string{"U789012"},
+							},
+						},
+						"kudo_type": {
+							"kudo_type": {
+								SelectedOption: slack.OptionBlockObject{
+									Value: "custom",
+									Text: &slack.TextBlockObject{
+										Text: "✏️ Outro...",
+									},
+								},
+							},
+						},
+						"kudo_description": {
+							"kudo_description": {
+								Value: "", // Empty description
+							},
+						},
+						"kudo_message": {
+							"kudo_message": {
+								Value: "Some message",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		called := false
+		mockSlack := &MockSlackClient{
+			PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+				called = true
+				return "C123456", "1234567890.123456", nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackChannelID: "C123456",
+			SlackAPI:       mockSlack,
+		}
+
+		w := httptest.NewRecorder()
+		HandleViewSubmission(w, callback, cfg)
+
+		if called {
+			t.Error("expected PostKudos NOT to be called with invalid data")
+		}
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status %d (validation errors return 200), got %d", http.StatusOK, w.Code)
+		}
+
+		// Check that response contains errors
+		body := w.Body.String()
+		if !strings.Contains(body, "response_action") || !strings.Contains(body, "errors") {
+			t.Error("expected error response with validation errors")
+		}
+	})
+
+	t.Run("custom type with empty message returns error", func(t *testing.T) {
+		callback := &slack.InteractionCallback{
+			User: slack.User{
+				ID: "U123456",
+			},
+			View: slack.View{
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_users": {
+							"kudo_users": {
+								SelectedUsers: []string{"U789012"},
+							},
+						},
+						"kudo_type": {
+							"kudo_type": {
+								SelectedOption: slack.OptionBlockObject{
+									Value: "custom",
+									Text: &slack.TextBlockObject{
+										Text: "✏️ Outro...",
+									},
+								},
+							},
+						},
+						"kudo_description": {
+							"kudo_description": {
+								Value: "Valid Description",
+							},
+						},
+						"kudo_message": {
+							"kudo_message": {
+								Value: "", // Empty message
+							},
+						},
+					},
+				},
+			},
+		}
+
+		called := false
+		mockSlack := &MockSlackClient{
+			PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+				called = true
+				return "C123456", "1234567890.123456", nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackChannelID: "C123456",
+			SlackAPI:       mockSlack,
+		}
+
+		w := httptest.NewRecorder()
+		HandleViewSubmission(w, callback, cfg)
+
+		if called {
+			t.Error("expected PostKudos NOT to be called with invalid data")
+		}
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status %d (validation errors return 200), got %d", http.StatusOK, w.Code)
+		}
+
+		body := w.Body.String()
+		if !strings.Contains(body, "obrigatória") {
+			t.Error("expected error message about required message field")
+		}
+	})
+
+	t.Run("custom type with description too long returns error", func(t *testing.T) {
+		longDescription := strings.Repeat("a", 151) // 151 characters
+
+		callback := &slack.InteractionCallback{
+			User: slack.User{
+				ID: "U123456",
+			},
+			View: slack.View{
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_users": {
+							"kudo_users": {
+								SelectedUsers: []string{"U789012"},
+							},
+						},
+						"kudo_type": {
+							"kudo_type": {
+								SelectedOption: slack.OptionBlockObject{
+									Value: "custom",
+									Text: &slack.TextBlockObject{
+										Text: "✏️ Outro...",
+									},
+								},
+							},
+						},
+						"kudo_description": {
+							"kudo_description": {
+								Value: longDescription,
+							},
+						},
+						"kudo_message": {
+							"kudo_message": {
+								Value: "Some message",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		called := false
+		mockSlack := &MockSlackClient{
+			PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+				called = true
+				return "C123456", "1234567890.123456", nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackChannelID: "C123456",
+			SlackAPI:       mockSlack,
+		}
+
+		w := httptest.NewRecorder()
+		HandleViewSubmission(w, callback, cfg)
+
+		if called {
+			t.Error("expected PostKudos NOT to be called with invalid data")
+		}
+
+		body := w.Body.String()
+		if !strings.Contains(body, "muito longo") {
+			t.Error("expected error message about description being too long")
+		}
+	})
+
+	t.Run("custom type with both errors returns both validation messages", func(t *testing.T) {
+		callback := &slack.InteractionCallback{
+			User: slack.User{
+				ID: "U123456",
+			},
+			View: slack.View{
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_users": {
+							"kudo_users": {
+								SelectedUsers: []string{"U789012"},
+							},
+						},
+						"kudo_type": {
+							"kudo_type": {
+								SelectedOption: slack.OptionBlockObject{
+									Value: "custom",
+									Text: &slack.TextBlockObject{
+										Text: "✏️ Outro...",
+									},
+								},
+							},
+						},
+						"kudo_description": {
+							"kudo_description": {
+								Value: "", // Empty
+							},
+						},
+						"kudo_message": {
+							"kudo_message": {
+								Value: "", // Empty
+							},
+						},
+					},
+				},
+			},
+		}
+
+		called := false
+		mockSlack := &MockSlackClient{
+			PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+				called = true
+				return "C123456", "1234567890.123456", nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackChannelID: "C123456",
+			SlackAPI:       mockSlack,
+		}
+
+		w := httptest.NewRecorder()
+		HandleViewSubmission(w, callback, cfg)
+
+		if called {
+			t.Error("expected PostKudos NOT to be called with invalid data")
+		}
+
+		body := w.Body.String()
+		if !strings.Contains(body, "kudo_description") || !strings.Contains(body, "kudo_message") {
+			t.Error("expected both validation errors in response")
+		}
+	})
+
+	t.Run("custom type with whitespace-only description is invalid", func(t *testing.T) {
+		callback := &slack.InteractionCallback{
+			User: slack.User{
+				ID: "U123456",
+			},
+			View: slack.View{
+				State: &slack.ViewState{
+					Values: map[string]map[string]slack.BlockAction{
+						"kudo_users": {
+							"kudo_users": {
+								SelectedUsers: []string{"U789012"},
+							},
+						},
+						"kudo_type": {
+							"kudo_type": {
+								SelectedOption: slack.OptionBlockObject{
+									Value: "custom",
+									Text: &slack.TextBlockObject{
+										Text: "✏️ Outro...",
+									},
+								},
+							},
+						},
+						"kudo_description": {
+							"kudo_description": {
+								Value: "   ", // Only whitespace
+							},
+						},
+						"kudo_message": {
+							"kudo_message": {
+								Value: "Some message",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		called := false
+		mockSlack := &MockSlackClient{
+			PostMessageFunc: func(channelID string, options ...slack.MsgOption) (string, string, error) {
+				called = true
+				return "C123456", "1234567890.123456", nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackChannelID: "C123456",
+			SlackAPI:       mockSlack,
+		}
+
+		w := httptest.NewRecorder()
+		HandleViewSubmission(w, callback, cfg)
+
+		if called {
+			t.Error("expected PostKudos NOT to be called with whitespace-only description")
+		}
+
+		body := w.Body.String()
+		if !strings.Contains(body, "preencha o nome") {
+			t.Error("expected error message for empty description")
+		}
+	})
+}
+
 // MockSlackClient for testing
 type MockSlackClient struct {
 	PostMessageFunc               func(channelID string, options ...slack.MsgOption) (string, string, error)

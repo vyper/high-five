@@ -512,3 +512,219 @@ func TestUpdateModal_DescriptionBlockInsertion(t *testing.T) {
 		t.Errorf("UpdateModal() unexpected error = %v", err)
 	}
 }
+
+func TestUpdateModal_CustomKudoType(t *testing.T) {
+	template := `{
+		"view": {
+			"blocks": [
+				{"block_id": "kudo_type"},
+				{"block_id": "kudo_message", "element": {}}
+			]
+		}
+	}`
+
+	t.Run("custom type creates input block", func(t *testing.T) {
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body, _ := io.ReadAll(req.Body)
+				var payload map[string]interface{}
+				json.Unmarshal(body, &payload)
+
+				view := payload["view"].(map[string]interface{})
+				blocks := view["blocks"].([]interface{})
+
+				// Should have 3 blocks (original 2 + description input)
+				if len(blocks) != 3 {
+					t.Errorf("expected 3 blocks, got %d", len(blocks))
+				}
+
+				// Description block should be an input type
+				descBlock := blocks[1].(map[string]interface{})
+				if descBlock["block_id"] != "kudo_description" {
+					t.Errorf("expected kudo_description block")
+				}
+				if descBlock["type"] != "input" {
+					t.Errorf("expected description block type to be 'input', got %s", descBlock["type"])
+				}
+
+				// Verify it has label
+				label := descBlock["label"].(map[string]interface{})
+				if label["text"] != "Nome do tipo de elogio" {
+					t.Errorf("expected label 'Nome do tipo de elogio', got %s", label["text"])
+				}
+
+				// Verify it has element with action_id
+				element := descBlock["element"].(map[string]interface{})
+				if element["action_id"] != "kudo_description" {
+					t.Errorf("expected action_id 'kudo_description'")
+				}
+
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(bytes.NewBufferString(`{"ok":true}`)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		err := UpdateModal("V123", "hash123", "custom", "", template, cfg)
+		if err != nil {
+			t.Errorf("UpdateModal() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("switching from custom to normal creates context block", func(t *testing.T) {
+		templateWithCustomInput := `{
+			"view": {
+				"blocks": [
+					{"block_id": "kudo_type"},
+					{
+						"type": "input",
+						"block_id": "kudo_description",
+						"element": {
+							"type": "plain_text_input",
+							"action_id": "kudo_description",
+							"initial_value": "My Custom Type"
+						}
+					},
+					{"block_id": "kudo_message", "element": {}}
+				]
+			}
+		}`
+
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body, _ := io.ReadAll(req.Body)
+				var payload map[string]interface{}
+				json.Unmarshal(body, &payload)
+
+				view := payload["view"].(map[string]interface{})
+				blocks := view["blocks"].([]interface{})
+
+				// Description block should now be context type
+				descBlock := blocks[1].(map[string]interface{})
+				if descBlock["type"] != "context" {
+					t.Errorf("expected description block type to be 'context', got %s", descBlock["type"])
+				}
+
+				// Should have elements array with description text
+				elements := descBlock["elements"].([]interface{})
+				if len(elements) == 0 {
+					t.Errorf("expected elements in context block")
+				}
+
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(bytes.NewBufferString(`{"ok":true}`)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		err := UpdateModal("V123", "hash123", "resolvedor-de-problemas", "", templateWithCustomInput, cfg)
+		if err != nil {
+			t.Errorf("UpdateModal() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("switching from normal to custom preserves no initial value when messageValue empty", func(t *testing.T) {
+		templateWithContext := `{
+			"view": {
+				"blocks": [
+					{"block_id": "kudo_type"},
+					{
+						"type": "context",
+						"block_id": "kudo_description",
+						"elements": [{"type": "mrkdwn", "text": "Some description"}]
+					},
+					{"block_id": "kudo_message", "element": {}}
+				]
+			}
+		}`
+
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body, _ := io.ReadAll(req.Body)
+				var payload map[string]interface{}
+				json.Unmarshal(body, &payload)
+
+				view := payload["view"].(map[string]interface{})
+				blocks := view["blocks"].([]interface{})
+
+				// Description block should be input type
+				descBlock := blocks[1].(map[string]interface{})
+				if descBlock["type"] != "input" {
+					t.Errorf("expected description block type to be 'input', got %s", descBlock["type"])
+				}
+
+				// Element should not have initial_value since messageValue is empty
+				element := descBlock["element"].(map[string]interface{})
+				if _, exists := element["initial_value"]; exists {
+					t.Errorf("expected no initial_value when messageValue is empty")
+				}
+
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(bytes.NewBufferString(`{"ok":true}`)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		err := UpdateModal("V123", "hash123", "custom", "", templateWithContext, cfg)
+		if err != nil {
+			t.Errorf("UpdateModal() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("custom type does not pre-fill message", func(t *testing.T) {
+		mockHTTP := &MockHTTPClient{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				body, _ := io.ReadAll(req.Body)
+				var payload map[string]interface{}
+				json.Unmarshal(body, &payload)
+
+				view := payload["view"].(map[string]interface{})
+				blocks := view["blocks"].([]interface{})
+
+				// Message block should not have initial_value
+				msgBlock := blocks[2].(map[string]interface{})
+				element := msgBlock["element"].(map[string]interface{})
+				if _, exists := element["initial_value"]; exists {
+					t.Errorf("custom type should not pre-fill message")
+				}
+
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(bytes.NewBufferString(`{"ok":true}`)),
+				}, nil
+			},
+		}
+
+		cfg := &config.Config{
+			SlackBotToken: "xoxb-test-token",
+			HTTPClient:    mockHTTP,
+		}
+
+		err := UpdateModal("V123", "hash123", "custom", "", template, cfg)
+		if err != nil {
+			t.Errorf("UpdateModal() unexpected error = %v", err)
+		}
+	})
+}

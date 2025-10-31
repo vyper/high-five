@@ -26,12 +26,18 @@ func HandleBlockActions(w http.ResponseWriter, callback *slack.InteractionCallba
 			}
 
 			// Only suggest message if field is empty (preserve user input)
+			// For custom type, never suggest a message
 			suggestedMessage := ""
-			if currentMessage == "" {
+			if action.SelectedOption.Value == "custom" {
+				// For custom type, preserve current message but don't suggest anything
+				suggestedMessage = currentMessage
+			} else if currentMessage == "" {
+				// For predefined types, suggest message only if empty
 				if msg, ok := models.KudoSuggestedMessages[action.SelectedOption.Value]; ok {
 					suggestedMessage = msg
 				}
 			} else {
+				// Preserve user's current message
 				suggestedMessage = currentMessage
 			}
 
