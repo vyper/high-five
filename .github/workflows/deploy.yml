@@ -1,0 +1,72 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    environment: ${{ github.event_name == 'release' && github.event.action == 'published' && 'production' || 'staging' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GOOGLE_CLOUD_PROJECT_ID }}
+          credentials_json: ${{ secrets.GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Deploy slash-command
+        run: |
+          gcloud functions deploy matter-slash-command \
+            --project ${{ vars.GOOGLE_CLOUD_PROJECT_ID }} \
+            --gen2 \
+            --entry-point SlashCommand \
+            --region us-east1 \
+            --runtime go125 \
+            --verbosity error \
+            --source . \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory 128MiB \
+            --set-env-vars "SLACK_BOT_TOKEN=${{ vars.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ vars.SLACK_SIGNING_SECRET }}"
+
+      - name: Deploy interactivity
+        run: |
+          gcloud functions deploy matter-interactivity \
+            --project ${{ vars.GOOGLE_CLOUD_PROJECT_ID }} \
+            --gen2 \
+            --entry-point Interactivity \
+            --region us-east1 \
+            --runtime go125 \
+            --verbosity error \
+            --source . \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory 128MiB \
+            --set-env-vars "SLACK_BOT_TOKEN=${{ vars.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ vars.SLACK_SIGNING_SECRET }}"
+
+      - name: Deploy interactivity
+        run: |
+          gcloud functions deploy matter-reminder \
+            --project ${{ vars.GOOGLE_CLOUD_PROJECT_ID }} \
+            --gen2 \
+            --entry-point Reminder \
+            --region us-east1 \
+            --runtime go125 \
+            --verbosity error \
+            --source . \
+            --trigger-topic matter-reminder \
+            --memory 128MiB \
+            --set-env-vars "SLACK_BOT_TOKEN=${{ vars.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ vars.SLACK_SIGNING_SECRET }}"
