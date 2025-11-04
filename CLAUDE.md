@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Go application for Google Cloud Functions Gen2 that implements a Slack kudos/compliments system. The application is split into two separate Cloud Functions:
+A Go application for Google Cloud Functions Gen2 that implements a Slack kudos/compliments system. The application is split into three separate Cloud Functions:
 
 - **SlashCommand**: Handles the `/elogie` slash command
 - **Interactivity**: Handles modal interactions (block actions and view submissions)
+- **Reminder**: Sends weekly DM reminders to channel members (triggered by Cloud Scheduler)
 
 ## Development Commands
 
@@ -19,6 +20,9 @@ go run cmd/slash-command/main.go
 
 # Run interactivity function locally
 go run cmd/interactivity/main.go
+
+# Run reminder function locally
+go run cmd/reminder/main.go
 
 # Function available at http://localhost:8080
 # Use PORT env var to change port
@@ -62,13 +66,14 @@ SLACK_BOT_TOKEN=xoxb-test SLACK_CHANNEL_ID=C123 SLACK_SIGNING_SECRET=secret go t
 ```
 
 **Test Coverage:**
-- Overall: **85.5%** coverage
+- Overall: **82.4%** coverage
 - `internal/config`: 100%
-- `internal/handlers`: 100%
-- `internal/services`: 92.5%
-- `functions/slashcommand`: 73.3%
-- `functions/interactivity`: 86.2%
-- Total test cases: **137**
+- `internal/handlers`: 95.7%
+- `internal/services`: 89.5%
+- `functions/slashcommand`: 68.8%
+- `functions/interactivity`: 83.3%
+- `functions/reminder`: 91.3%
+- Total test cases: **150+**
 ```
 
 ### Building & Dependencies
@@ -112,32 +117,122 @@ gcloud functions deploy matter-interactivity \
   --allow-unauthenticated \
   --memory 128MiB \
   --set-env-vars "SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN,SLACK_CHANNEL_ID=$SLACK_CHANNEL_ID,SLACK_SIGNING_SECRET=$SLACK_SIGNING_SECRET"
+
+# Deploy reminder function (requires Pub/Sub topic to exist first)
+gcloud functions deploy matter-reminder \
+  --project 'parafuzo-qa-infra' \
+  --gen2 \
+  --entry-point Reminder \
+  --region us-east1 \
+  --runtime go125 \
+  --verbosity error \
+  --source . \
+  --trigger-topic matter-reminder \
+  --memory 128MiB \
+  --set-env-vars "SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN,SLACK_CHANNEL_ID=$SLACK_CHANNEL_ID,SLACK_SIGNING_SECRET=$SLACK_SIGNING_SECRET"
+```
+
+### Weekly Reminder Setup
+
+The reminder function sends weekly DMs to all channel members encouraging them to give kudos. It requires Google Cloud Scheduler and Pub/Sub.
+
+**Prerequisites:**
+- Slack app must have the following permissions:
+  - `channels:read` or `groups:read` - to list channel members
+  - `im:write` - to send direct messages
+  - `users:read` - to get user info (filter bots)
+  - `chat:write` - to post messages (already required)
+
+**Step 1: Create Pub/Sub Topic**
+```bash
+gcloud pubsub topics create matter-reminder \
+  --project 'parafuzo-qa-infra'
+```
+
+**Step 2: Deploy Reminder Function** (see command above)
+
+**Step 3: Create Cloud Scheduler Job**
+```bash
+# Weekly reminder - every Monday at 9 AM (America/Sao_Paulo timezone)
+gcloud scheduler jobs create pubsub weekly-matter-reminder \
+  --project 'parafuzo-qa-infra' \
+  --location us-east1 \
+  --schedule "0 10 * * 5" \
+  --time-zone "America/Sao_Paulo" \
+  --topic matter-reminder \
+  --message-body '{"trigger":"weekly_reminder"}'
+```
+
+**Step 4: Test the Scheduler** (optional)
+```bash
+# Manually trigger the job to test
+gcloud scheduler jobs run weekly-matter-reminder \
+  --project 'parafuzo-qa-infra' \
+  --location us-east1
+```
+
+**Managing the Reminder:**
+```bash
+# Pause reminders
+gcloud scheduler jobs pause weekly-matter-reminder \
+  --project 'parafuzo-qa-infra' \
+  --location us-east1
+
+# Resume reminders
+gcloud scheduler jobs resume weekly-matter-reminder \
+  --project 'parafuzo-qa-infra' \
+  --location us-east1
+
+# Update schedule
+gcloud scheduler jobs update pubsub weekly-matter-reminder \
+  --project 'parafuzo-qa-infra' \
+  --location us-east1 \
+  --schedule "0 10 * * 1"
+
+# Delete scheduler job
+gcloud scheduler jobs delete weekly-matter-reminder \
+  --project 'parafuzo-qa-infra' \
+  --location us-east1
+
+# Delete Pub/Sub topic (only if removing feature entirely)
+gcloud pubsub topics delete matter-reminder \
+  --project 'parafuzo-qa-infra'
 ```
 
 ## Architecture
 
-### Two-Function Design
+### Three-Function Design
 
 The application uses **separate Cloud Functions** for different responsibilities:
 
 **Entry Point Files (Root Directory):**
 - `slash_command.go`: Exports `SlashCommand` function for Cloud Functions (package `function`)
 - `interactivity.go`: Exports `Interactivity` function for Cloud Functions (package `function`)
+- `reminder.go`: Exports `Reminder` function for Cloud Functions (package `function`)
 
 These files act as adapters between Google Cloud Functions and the internal implementation.
 
 1. **SlashCommand Function** (`functions/slashcommand/`)
    - Entry point: `SlashCommand`
+   - Trigger: HTTP (Slack slash command)
    - Handles `/elogie` slash command
    - Opens the kudos modal via Slack's `views.open` API
    - Validates Slack signing secret
 
 2. **Interactivity Function** (`functions/interactivity/`)
    - Entry point: `Interactivity`
+   - Trigger: HTTP (Slack interactivity)
    - Handles all modal interactions
    - Routes to block actions handler (for dropdown changes)
    - Routes to view submission handler (for final submission)
    - Validates Slack signing secret
+
+3. **Reminder Function** (`functions/reminder/`)
+   - Entry point: `Reminder`
+   - Trigger: Pub/Sub (Cloud Scheduler)
+   - Sends weekly DM reminders to channel members
+   - Lists channel members, filters bots/deleted users
+   - Sends formatted Block Kit DMs with kudos encouragement
 
 ### Package Structure
 
@@ -152,7 +247,8 @@ internal/
 ├── services/        # Business logic services
 │   ├── modal.go     # OpenModal(), UpdateModal() - Slack views API
 │   ├── kudos.go     # PostKudos(), ParseKudoTypeText()
-│   └── formatting.go # Slack message formatting (Block Kit)
+│   ├── formatting.go # Slack message formatting (Block Kit)
+│   └── reminder.go  # GetChannelMembers(), SendReminderDM(), FormatReminderBlocks()
 ├── models/          # Data models and constants
 │   └── kudos_types.go # KudoSuggestedMessages, KudoDescriptions maps
 └── templates/       # Slack modal templates
@@ -185,6 +281,15 @@ internal/
 3. `handlers.HandleViewSubmission()` extracts form values
 4. `services.PostKudos()` formats message with `services.FormatKudosAsBlocks()`
 5. Posts to configured Slack channel using Block Kit format
+
+**Reminder Flow:**
+1. Cloud Scheduler triggers weekly (cron schedule)
+2. Publishes message to Pub/Sub topic `matter-reminder`
+3. Reminder function receives CloudEvent
+4. `services.GetChannelMembers()` lists all channel members with pagination
+5. Filters out bots and deleted users using `GetUserInfo()`
+6. `services.SendReminderDM()` sends DM to each member
+7. DM contains Block Kit message with call-to-action button
 
 ### Configuration
 

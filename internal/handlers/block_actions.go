@@ -12,6 +12,15 @@ import (
 
 // HandleBlockActions processes block_actions interactions for dynamic modal updates
 func HandleBlockActions(w http.ResponseWriter, callback *slack.InteractionCallback, viewTemplate string, cfg *config.Config) {
+	// Check for reminder button action first
+	for _, action := range callback.ActionCallback.BlockActions {
+		if action.ActionID == "open_kudos_modal" {
+			// User clicked the button in reminder DM
+			HandleReminderButton(w, callback, viewTemplate, cfg)
+			return
+		}
+	}
+
 	// Check if this is a kudo_type selection
 	for _, action := range callback.ActionCallback.BlockActions {
 		if action.ActionID == "kudo_type" && action.SelectedOption.Value != "" {

@@ -501,6 +501,8 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 type MockSlackClient struct {
 	PostMessageFunc               func(channelID string, options ...slack.MsgOption) (string, string, error)
 	InviteUsersToConversationFunc func(channelID string, users ...string) (*slack.Channel, error)
+	GetUsersInConversationFunc    func(params *slack.GetUsersInConversationParameters) ([]string, string, error)
+	GetUserInfoFunc               func(user string) (*slack.User, error)
 }
 
 func (m *MockSlackClient) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
@@ -515,4 +517,22 @@ func (m *MockSlackClient) InviteUsersToConversation(channelID string, users ...s
 		return m.InviteUsersToConversationFunc(channelID, users...)
 	}
 	return &slack.Channel{GroupConversation: slack.GroupConversation{Conversation: slack.Conversation{ID: channelID}}}, nil
+}
+
+func (m *MockSlackClient) GetUsersInConversation(params *slack.GetUsersInConversationParameters) ([]string, string, error) {
+	if m.GetUsersInConversationFunc != nil {
+		return m.GetUsersInConversationFunc(params)
+	}
+	return []string{"U123456", "U789012"}, "", nil
+}
+
+func (m *MockSlackClient) GetUserInfo(user string) (*slack.User, error) {
+	if m.GetUserInfoFunc != nil {
+		return m.GetUserInfoFunc(user)
+	}
+	return &slack.User{
+		ID:      user,
+		IsBot:   false,
+		Deleted: false,
+	}, nil
 }

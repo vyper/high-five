@@ -17,6 +17,8 @@ type HTTPClient interface {
 type SlackClient interface {
 	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
 	InviteUsersToConversation(channelID string, users ...string) (*slack.Channel, error)
+	GetUsersInConversation(params *slack.GetUsersInConversationParameters) ([]string, string, error)
+	GetUserInfo(user string) (*slack.User, error)
 }
 
 // Config holds the configuration for the function
