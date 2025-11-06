@@ -34,13 +34,13 @@ func (m *ExtendedMockSlackClient) GetUserInfo(user string) (*slack.User, error) 
 
 func TestGetChannelMembers(t *testing.T) {
 	tests := []struct {
-		name               string
-		mockUsersFunc      func(params *slack.GetUsersInConversationParameters) ([]string, string, error)
-		mockUserInfoFunc   func(user string) (*slack.User, error)
-		expectedMembers    []string
+		name                string
+		mockUsersFunc       func(params *slack.GetUsersInConversationParameters) ([]string, string, error)
+		mockUserInfoFunc    func(user string) (*slack.User, error)
+		expectedMembers     []string
 		expectedMemberCount int
-		wantErr            bool
-		errContains        string
+		wantErr             bool
+		errContains         string
 	}{
 		{
 			name: "successful single page",
@@ -55,7 +55,7 @@ func TestGetChannelMembers(t *testing.T) {
 				}, nil
 			},
 			expectedMemberCount: 3,
-			wantErr:            false,
+			wantErr:             false,
 		},
 		{
 			name: "pagination with multiple pages",
@@ -77,7 +77,7 @@ func TestGetChannelMembers(t *testing.T) {
 				}, nil
 			},
 			expectedMemberCount: 4,
-			wantErr:            false,
+			wantErr:             false,
 		},
 		{
 			name: "filter out bots",
@@ -99,7 +99,7 @@ func TestGetChannelMembers(t *testing.T) {
 				}, nil
 			},
 			expectedMemberCount: 2,
-			wantErr:            false,
+			wantErr:             false,
 		},
 		{
 			name: "filter out deleted users",
@@ -121,7 +121,7 @@ func TestGetChannelMembers(t *testing.T) {
 				}, nil
 			},
 			expectedMemberCount: 2,
-			wantErr:            false,
+			wantErr:             false,
 		},
 		{
 			name: "filter out both bots and deleted users",
@@ -139,7 +139,7 @@ func TestGetChannelMembers(t *testing.T) {
 				}
 			},
 			expectedMemberCount: 2,
-			wantErr:            false,
+			wantErr:             false,
 		},
 		{
 			name: "API error getting users",
@@ -165,7 +165,7 @@ func TestGetChannelMembers(t *testing.T) {
 				}, nil
 			},
 			expectedMemberCount: 2, // UBAD222 is skipped
-			wantErr:            false,
+			wantErr:             false,
 		},
 		{
 			name: "empty channel",
@@ -173,7 +173,7 @@ func TestGetChannelMembers(t *testing.T) {
 				return []string{}, "", nil
 			},
 			expectedMemberCount: 0,
-			wantErr:            false,
+			wantErr:             false,
 		},
 	}
 
@@ -311,8 +311,8 @@ func TestFormatReminderBlocks_Content(t *testing.T) {
 	if !ok {
 		t.Fatal("First block is not a HeaderBlock")
 	}
-	if headerBlock.Text.Text != "👋 Lembrete Semanal de Kudos" {
-		t.Errorf("Header text = %q, want %q", headerBlock.Text.Text, "👋 Lembrete Semanal de Kudos")
+	if headerBlock.Text.Text != "👋 Lembrete Semanal" {
+		t.Errorf("Header text = %q, want %q", headerBlock.Text.Text, "👋 Lembrete Semanal")
 	}
 
 	// Check section content
@@ -320,7 +320,7 @@ func TestFormatReminderBlocks_Content(t *testing.T) {
 	if !ok {
 		t.Fatal("Second block is not a SectionBlock")
 	}
-	expectedText := "Esta semana você reconheceu algum colega pelo trabalho excepcional?\n\nUse `/elogie` para enviar um elogio e valorizar sua equipe!"
+	expectedText := "Esta semana alguém realizou algum trabalho excepcional?\n\nUse `/elogie` para enviar um elogio e valorizar as pessoas!"
 	if sectionBlock.Text.Text != expectedText {
 		t.Errorf("Section text mismatch.\nGot: %q\nWant: %q", sectionBlock.Text.Text, expectedText)
 	}

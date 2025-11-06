@@ -11,7 +11,7 @@ import (
 )
 
 // HandleReminderButton handles the button click from reminder DMs
-// Opens the kudos modal when user clicks "Enviar Elogio Agora"
+// Opens the kudos modal when user clicks "Elogiar agora!"
 func HandleReminderButton(w http.ResponseWriter, callback *slack.InteractionCallback, viewTemplate string, cfg *config.Config) {
 	// Extract trigger_id from the callback
 	triggerID := callback.TriggerID

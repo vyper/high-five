@@ -76,7 +76,7 @@ func FormatReminderBlocks() []slack.Block {
 		slack.NewHeaderBlock(
 			&slack.TextBlockObject{
 				Type: slack.PlainTextType,
-				Text: "👋 Lembrete Semanal de Kudos",
+				Text: "👋 Lembrete Semanal",
 			},
 		),
 
@@ -84,7 +84,7 @@ func FormatReminderBlocks() []slack.Block {
 		slack.NewSectionBlock(
 			&slack.TextBlockObject{
 				Type: slack.MarkdownType,
-				Text: "Esta semana você reconheceu algum colega pelo trabalho excepcional?\n\nUse `/elogie` para enviar um elogio e valorizar sua equipe!",
+				Text: "Esta semana alguém realizou algum trabalho excepcional?\n\nUse `/elogie` para enviar um elogio e valorizar as pessoas!",
 			},
 			nil,
 			nil,
@@ -98,7 +98,7 @@ func FormatReminderBlocks() []slack.Block {
 				"open_modal",
 				&slack.TextBlockObject{
 					Type: slack.PlainTextType,
-					Text: "📝 Enviar Elogio Agora",
+					Text: "📝 Elogiar agora!",
 				},
 			).WithStyle(slack.StylePrimary),
 		),
