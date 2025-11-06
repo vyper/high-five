@@ -40,7 +40,7 @@ jobs:
             --trigger-http \
             --allow-unauthenticated \
             --memory 128MiB \
-            --set-env-vars "SLACK_BOT_TOKEN=${{ vars.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ vars.SLACK_SIGNING_SECRET }}"
+            --set-env-vars "SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ secrets.SLACK_SIGNING_SECRET }}"
 
       - name: Deploy interactivity
         run: |
@@ -55,7 +55,7 @@ jobs:
             --trigger-http \
             --allow-unauthenticated \
             --memory 128MiB \
-            --set-env-vars "SLACK_BOT_TOKEN=${{ vars.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ vars.SLACK_SIGNING_SECRET }}"
+            --set-env-vars "SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ secrets.SLACK_SIGNING_SECRET }}"
 
       - name: Deploy interactivity
         run: |
@@ -69,4 +69,4 @@ jobs:
             --source . \
             --trigger-topic matter-reminder \
             --memory 128MiB \
-            --set-env-vars "SLACK_BOT_TOKEN=${{ vars.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ vars.SLACK_SIGNING_SECRET }}"
+            --set-env-vars "SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }},SLACK_CHANNEL_ID=${{ vars.SLACK_CHANNEL_ID }},SLACK_SIGNING_SECRET=${{ secrets.SLACK_SIGNING_SECRET }}"
